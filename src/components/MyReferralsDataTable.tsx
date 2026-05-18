@@ -81,7 +81,7 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
   }
 
   const formatCurrency = (amount: number) =>
-    `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    `$${Math.round(amount).toLocaleString('en-US')}`
 
   if (loading) {
     return (

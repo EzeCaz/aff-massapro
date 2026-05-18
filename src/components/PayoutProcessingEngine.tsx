@@ -142,7 +142,7 @@ export default function PayoutProcessingEngine() {
     }
   }
 
-  const formatCurrency = (amount: number) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatCurrency = (amount: number) => `$${Math.round(amount).toLocaleString('en-US')}`
 
   const statusBadge = (status: string) => {
     switch (status) {

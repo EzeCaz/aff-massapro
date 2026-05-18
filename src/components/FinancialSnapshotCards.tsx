@@ -11,7 +11,7 @@ interface Affiliate {
 
 export default function FinancialSnapshotCards({ affiliate }: { affiliate: Affiliate }) {
   const formatCurrency = (amount: number) =>
-    `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    `$${Math.round(amount).toLocaleString('en-US')}`
 
   const cards = [
     {
@@ -58,7 +58,7 @@ export default function FinancialSnapshotCards({ affiliate }: { affiliate: Affil
               </div>
               <div>
                 <div className="text-sm text-gray-500">{card.label}</div>
-                <div className={`text-2xl font-bold ${card.valueClass}`}>{card.value}</div>
+                <div className={`text-xl font-bold ${card.valueClass} truncate`}>{card.value}</div>
               </div>
             </CardContent>
           </Card>

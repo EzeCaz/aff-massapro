@@ -166,7 +166,7 @@ export default function LandingPage() {
               { label: 'Total Affiliates', value: affiliates.length },
             ].map((stat) => (
               <div key={stat.label} className="text-center p-4 rounded-xl bg-white/60 border border-purple-100">
-                <div className="text-2xl font-bold text-purple-600">{stat.value}</div>
+                <div className="text-xl font-bold text-purple-600">{stat.value}</div>
                 <div className="text-sm text-gray-500">{stat.label}</div>
               </div>
             ))}

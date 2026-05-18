@@ -187,7 +187,7 @@ export default function AffiliateManagementTable() {
     }
   }
 
-  const formatCurrency = (amount: number) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatCurrency = (amount: number) => `$${Math.round(amount).toLocaleString('en-US')}`
 
   if (loading) {
     return (
@@ -248,26 +248,26 @@ export default function AffiliateManagementTable() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-purple-100">
           <CardContent className="p-4">
-            <div className="text-sm text-gray-500">Total Affiliates</div>
-            <div className="text-2xl font-bold text-gray-900">{affiliates.length}</div>
+            <div className="text-xs text-gray-500">Total Affiliates</div>
+            <div className="text-xl font-bold text-gray-900">{affiliates.length}</div>
           </CardContent>
         </Card>
         <Card className="border-purple-100">
           <CardContent className="p-4">
-            <div className="text-sm text-gray-500">Active</div>
-            <div className="text-2xl font-bold text-purple-600">{affiliates.filter(a => a.isActive).length}</div>
+            <div className="text-xs text-gray-500">Active</div>
+            <div className="text-xl font-bold text-purple-600">{affiliates.filter(a => a.isActive).length}</div>
           </CardContent>
         </Card>
         <Card className="border-purple-100">
           <CardContent className="p-4">
-            <div className="text-sm text-gray-500">Total Earnings</div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(affiliates.reduce((sum, a) => sum + a.totalEarnings, 0))}</div>
+            <div className="text-xs text-gray-500">Total Earnings</div>
+            <div className="text-xl font-bold text-gray-900 truncate">{formatCurrency(affiliates.reduce((sum, a) => sum + a.totalEarnings, 0))}</div>
           </CardContent>
         </Card>
         <Card className="border-purple-100">
           <CardContent className="p-4">
-            <div className="text-sm text-gray-500">Total Traffic</div>
-            <div className="text-2xl font-bold text-gray-900">{affiliates.reduce((sum, a) => sum + a.totalTraffic, 0).toLocaleString()}</div>
+            <div className="text-xs text-gray-500">Total Traffic</div>
+            <div className="text-xl font-bold text-gray-900">{affiliates.reduce((sum, a) => sum + a.totalTraffic, 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
