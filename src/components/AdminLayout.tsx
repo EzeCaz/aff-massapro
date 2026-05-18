@@ -2,16 +2,18 @@
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { Users, Link2, CreditCard, ArrowLeft, Sparkles } from 'lucide-react'
+import { Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug } from 'lucide-react'
 import AffiliateManagementTable from './AffiliateManagementTable'
 import LinkGeneratorTool from './LinkGeneratorTool'
 import PayoutProcessingEngine from './PayoutProcessingEngine'
+import IntegrationGuide from './IntegrationGuide'
 import { motion } from 'framer-motion'
 
 const navItems = [
   { id: 'affiliates' as const, label: 'Affiliates', icon: Users },
   { id: 'link-generator' as const, label: 'Link Generator', icon: Link2 },
   { id: 'payouts' as const, label: 'Payouts', icon: CreditCard },
+  { id: 'integration' as const, label: 'Integration', icon: Plug },
 ]
 
 export default function AdminLayout() {
@@ -65,7 +67,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left:0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
@@ -114,6 +116,7 @@ export default function AdminLayout() {
             {adminTab === 'affiliates' && <AffiliateManagementTable />}
             {adminTab === 'link-generator' && <LinkGeneratorTool />}
             {adminTab === 'payouts' && <PayoutProcessingEngine />}
+            {adminTab === 'integration' && <IntegrationGuide />}
           </motion.div>
         </div>
       </main>

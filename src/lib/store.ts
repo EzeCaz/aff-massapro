@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 type View = 'landing' | 'admin' | 'affiliate'
-type AdminTab = 'affiliates' | 'link-generator' | 'payouts'
+type AdminTab = 'affiliates' | 'link-generator' | 'payouts' | 'integration'
 
 interface AppState {
   currentView: View
