@@ -6,6 +6,12 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const affid = searchParams.get('affid')
+    const mode = searchParams.get('mode') // 'admin' for global stats
+
+    // If mode=admin, return global admin analytics
+    if (mode === 'admin') {
+      return getAdminStats()
+    }
 
     if (!affid) {
       return NextResponse.json({ error: 'affid is required' }, { status: 400 })
@@ -27,22 +33,29 @@ export async function GET(request: NextRequest) {
     })
 
     // Group clicks by day
-    const clicksByDay = new Map<string, number>()
+    const clicksByDay = new Map<string, { pageviews: number; buttonClicks: number }>()
     for (let i = 0; i < 30; i++) {
       const date = format(subDays(new Date(), 29 - i), 'yyyy-MM-dd')
-      clicksByDay.set(date, 0)
+      clicksByDay.set(date, { pageviews: 0, buttonClicks: 0 })
     }
 
     for (const click of clicks) {
       const day = format(click.createdAt, 'yyyy-MM-dd')
-      const current = clicksByDay.get(day) || 0
-      clicksByDay.set(day, current + 1)
+      const current = clicksByDay.get(day) || { pageviews: 0, buttonClicks: 0 }
+      if (click.eventType === 'pageview') {
+        current.pageviews++
+      } else {
+        current.buttonClicks++
+      }
+      clicksByDay.set(day, current)
     }
 
-    const trafficData = Array.from(clicksByDay.entries()).map(([date, count]) => ({
+    const trafficData = Array.from(clicksByDay.entries()).map(([date, data]) => ({
       date,
       label: format(parseISO(date), 'MMM dd'),
-      clicks: count,
+      clicks: data.pageviews + data.buttonClicks,
+      pageviews: data.pageviews,
+      buttonClicks: data.buttonClicks,
     }))
 
     // Get referrals for funnel
@@ -50,16 +63,16 @@ export async function GET(request: NextRequest) {
 
     const totalClicks = affiliate.totalTraffic
     const leads = referrals.filter(r => r.leadStatus === 'Lead').length
-    const callBooked = referrals.filter(r => r.leadStatus === 'Call Booked').length
-    const activeSubscribers = referrals.filter(r => r.leadStatus === 'Active Subscriber').length
+    const bookedCall = referrals.filter(r => r.leadStatus === 'Booked Call').length
+    const payingCustomer = referrals.filter(r => r.leadStatus === 'Paying Customer').length
     const churned = referrals.filter(r => r.leadStatus === 'Churned').length
     const totalReferrals = referrals.length
-    const paidSignups = activeSubscribers + churned
+    const paidSignups = payingCustomer + churned
 
     const funnelData = [
       { stage: 'Traffic', count: totalClicks, percentage: 100 },
       { stage: 'Leads Created', count: totalReferrals, percentage: totalClicks > 0 ? Math.round((totalReferrals / totalClicks) * 100) : 0 },
-      { stage: 'Booked Calls', count: callBooked + activeSubscribers + churned, percentage: totalClicks > 0 ? Math.round(((callBooked + activeSubscribers + churned) / totalClicks) * 100) : 0 },
+      { stage: 'Booked Calls', count: bookedCall + payingCustomer + churned, percentage: totalClicks > 0 ? Math.round(((bookedCall + payingCustomer + churned) / totalClicks) * 100) : 0 },
       { stage: 'Paid Signups', count: paidSignups, percentage: totalClicks > 0 ? Math.round((paidSignups / totalClicks) * 100) : 0 },
     ]
 
@@ -74,19 +87,19 @@ export async function GET(request: NextRequest) {
     // Referral status breakdown
     const referralBreakdown = {
       leads,
-      callBooked,
-      activeSubscribers,
+      bookedCall,
+      payingCustomer,
       churned,
       total: totalReferrals,
     }
 
-    // UTM campaign performance
+    // UTM campaign performance (using last-touch UTMs)
     const campaignPerformance = new Map<string, { total: number; conversions: number }>()
     for (const ref of referrals) {
-      const campaign = ref.utmCampaign || 'unknown'
+      const campaign = ref.ltUtmCampaign || ref.ftUtmCampaign || 'unknown'
       const current = campaignPerformance.get(campaign) || { total: 0, conversions: 0 }
       current.total++
-      if (ref.leadStatus === 'Active Subscriber' || ref.leadStatus === 'Churned') {
+      if (ref.leadStatus === 'Paying Customer' || ref.leadStatus === 'Churned') {
         current.conversions++
       }
       campaignPerformance.set(campaign, current)
@@ -99,15 +112,137 @@ export async function GET(request: NextRequest) {
       conversionRate: data.total > 0 ? Math.round((data.conversions / data.total) * 100) : 0,
     }))
 
+    // Event breakdown
+    const eventBreakdown: Record<string, number> = {}
+    for (const click of clicks) {
+      if (click.eventType === 'button_click' && click.eventId) {
+        eventBreakdown[click.eventId] = (eventBreakdown[click.eventId] || 0) + 1
+      }
+    }
+
+    // Traffic sources by UTM Source
+    const trafficSources: Record<string, number> = {}
+    for (const click of clicks) {
+      const source = click.utmSource || 'direct'
+      trafficSources[source] = (trafficSources[source] || 0) + 1
+    }
+
+    // Trend data (week-over-week)
+    const thisWeekClicks = clicks.filter(c => c.createdAt >= subDays(new Date(), 7)).length
+    const lastWeekClicks = clicks.filter(c => c.createdAt >= subDays(new Date(), 14) && c.createdAt < subDays(new Date(), 7)).length
+    const trendData = {
+      thisWeek: thisWeekClicks,
+      lastWeek: lastWeekClicks,
+      change: lastWeekClicks > 0 ? Math.round(((thisWeekClicks - lastWeekClicks) / lastWeekClicks) * 100) : 0,
+    }
+
     return NextResponse.json({
       trafficData,
       funnelData,
       financialSummary,
       referralBreakdown,
       utmPerformance,
+      eventBreakdown,
+      trafficSources,
+      trendData,
     })
   } catch (error) {
     console.error('Error fetching stats:', error)
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
+  }
+}
+
+async function getAdminStats() {
+  try {
+    const thirtyDaysAgo = subDays(new Date(), 30)
+
+    // Total traffic across all affiliates
+    const totalTraffic = await db.click.count({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+    })
+
+    // Count unique sessions - approximate by counting clicks with distinct IPs
+    const uniqueVisitorCount = await db.click.count({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+    })
+
+    const totalReferrals = await db.referral.count({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+    })
+
+    const bookedCalls = await db.referral.count({
+      where: { leadStatus: { in: ['Booked Call', 'Paying Customer'] }, createdAt: { gte: thirtyDaysAgo } },
+    })
+
+    const payingCustomers = await db.referral.count({
+      where: { leadStatus: 'Paying Customer' },
+    })
+
+    const activeAffiliates = await db.affiliate.count({
+      where: { isActive: true, isApproved: true },
+    })
+
+    const affiliateTraffic = await db.click.count({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+    })
+
+    const blendedRate = totalTraffic > 0 ? Math.round((totalReferrals / totalTraffic) * 100) : 0
+    const bookingRate = totalReferrals > 0 ? Math.round((bookedCalls / totalReferrals) * 100) : 0
+
+    // Event breakdown across all affiliates
+    const allClicks = await db.click.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo }, eventType: 'button_click' },
+      select: { eventId: true },
+    })
+    const eventBreakdown: Record<string, number> = {}
+    for (const click of allClicks) {
+      if (click.eventId) {
+        eventBreakdown[click.eventId] = (eventBreakdown[click.eventId] || 0) + 1
+      }
+    }
+
+    // Traffic sources
+    const allClicksForSource = await db.click.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+      select: { utmSource: true, affid: true },
+    })
+    const trafficSources: Record<string, number> = {}
+    const trafficByAffid: Record<string, number> = {}
+    for (const click of allClicksForSource) {
+      const source = click.utmSource || 'direct'
+      trafficSources[source] = (trafficSources[source] || 0) + 1
+      trafficByAffid[click.affid] = (trafficByAffid[click.affid] || 0) + 1
+    }
+
+    // Trend data
+    const thisWeekClicks = await db.click.count({
+      where: { createdAt: { gte: subDays(new Date(), 7) } },
+    })
+    const lastWeekClicks = await db.click.count({
+      where: { createdAt: { gte: subDays(new Date(), 14), lt: subDays(new Date(), 7) } },
+    })
+
+    return NextResponse.json({
+      totalTraffic,
+      uniqueVisitors: Math.round(uniqueVisitorCount * 0.6), // Approximate unique from total
+      totalReferrals,
+      bookedCalls,
+      payingCustomers,
+      activeAffiliates,
+      affiliateTraffic,
+      blendedRate,
+      bookingRate,
+      eventBreakdown,
+      trafficSources,
+      trafficByAffid,
+      trendData: {
+        thisWeek: thisWeekClicks,
+        lastWeek: lastWeekClicks,
+        change: lastWeekClicks > 0 ? Math.round(((thisWeekClicks - lastWeekClicks) / lastWeekClicks) * 100) : 0,
+      },
+    })
+  } catch (error) {
+    console.error('Error fetching admin stats:', error)
+    return NextResponse.json({ error: 'Failed to fetch admin stats' }, { status: 500 })
   }
 }

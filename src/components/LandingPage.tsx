@@ -1,43 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Shield, Users, ArrowRight, Sparkles } from 'lucide-react'
+import { Shield, Users, ArrowRight, Sparkles, LogIn, UserPlus } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-interface Affiliate {
-  id: string
-  affid: string
-  name: string
-  email: string
-  isActive: boolean
-}
-
 export default function LandingPage() {
-  const { setView, setSelectedAffiliateId } = useAppStore()
-  const [affiliates, setAffiliates] = useState<Affiliate[]>([])
-  const [selectedAffiliate, setSelectedAffiliate] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/affiliates')
-      .then(res => res.json())
-      .then(data => {
-        setAffiliates(data)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [])
-
-  const handleAffiliatePortal = () => {
-    if (selectedAffiliate) {
-      setSelectedAffiliateId(selectedAffiliate)
-      setView('affiliate')
-    }
-  }
+  const { setView } = useAppStore()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex flex-col">
@@ -53,9 +23,24 @@ export default function LandingPage() {
               <p className="text-xs text-purple-500">AI Agentic Receptionist — Affiliate Hub</p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-sm text-purple-400">
-            <Shield className="w-4 h-4" />
-            <span>Secure Platform</span>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+              onClick={() => setView('login')}
+            >
+              <LogIn className="w-4 h-4 mr-1" />
+              Login
+            </Button>
+            <Button
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => setView('register')}
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              Register
+            </Button>
           </div>
         </div>
       </header>
@@ -98,7 +83,7 @@ export default function LandingPage() {
                   </div>
                   <CardTitle className="text-xl">Manager Dashboard</CardTitle>
                   <CardDescription>
-                    Full administrative control over affiliates, payouts, and link generation
+                    Full administrative control over affiliates, analytics, payouts, and link generation
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -126,48 +111,44 @@ export default function LandingPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Select
-                    value={selectedAffiliate}
-                    onValueChange={setSelectedAffiliate}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={loading ? "Loading..." : "Select an affiliate..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {affiliates.filter(a => a.isActive).map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name} ({a.affid})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-                    onClick={handleAffiliatePortal}
-                    disabled={!selectedAffiliate}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    onClick={() => setView('login')}
                   >
-                    Enter Portal
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Log In to Portal
                     <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-purple-300 text-purple-600 hover:bg-purple-50"
+                    onClick={() => setView('register')}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Register as Affiliate
                   </Button>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
 
-          {/* Stats bar */}
+          {/* Commission highlights */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
             className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4"
           >
             {[
-              { label: 'Active Affiliates', value: affiliates.filter(a => a.isActive).length },
-              { label: 'Total Affiliates', value: affiliates.length },
+              { label: 'Signup Commission', value: '$100', desc: 'Per paying customer' },
+              { label: 'Enterprise Plan', value: '$100/mo', desc: 'Monthly recurring' },
+              { label: 'Professional Plan', value: '$50/mo', desc: 'Monthly recurring' },
+              { label: 'Basic Plan', value: '$10/mo', desc: 'Monthly recurring' },
             ].map((stat) => (
               <div key={stat.label} className="text-center p-4 rounded-xl bg-white/60 border border-purple-100">
                 <div className="text-xl font-bold text-purple-600">{stat.value}</div>
-                <div className="text-sm text-gray-500">{stat.label}</div>
+                <div className="text-sm font-medium text-gray-700">{stat.label}</div>
+                <div className="text-xs text-gray-400">{stat.desc}</div>
               </div>
             ))}
           </motion.div>

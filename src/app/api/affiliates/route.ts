@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, phone, affid } = body
+    const { name, email, phone, affid, company, commissionType, isActive, isApproved } = body
 
     if (!name || !email || !affid) {
       return NextResponse.json({ error: 'Name, email, and affid are required' }, { status: 400 })
@@ -32,16 +32,19 @@ export async function POST(request: NextRequest) {
         name,
         email,
         phone: phone || null,
+        company: company || null,
         affid,
-        isActive: true,
+        isActive: isActive !== undefined ? isActive : true,
+        isApproved: isApproved !== undefined ? isApproved : true,
+        commissionType: commissionType || 'standard',
       },
     })
 
     return NextResponse.json(affiliate, { status: 201 })
   } catch (error: unknown) {
     console.error('Error creating affiliate:', error)
-    const message = error instanceof Error && error.message.includes('Unique') 
-      ? 'Affiliate with this email or affid already exists' 
+    const message = error instanceof Error && error.message.includes('Unique')
+      ? 'Affiliate with this email or affid already exists'
       : 'Failed to create affiliate'
     return NextResponse.json({ error: message }, { status: 400 })
   }

@@ -2,14 +2,18 @@
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug } from 'lucide-react'
+import { BarChart3, Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug } from 'lucide-react'
+import AnalyticsOverview from './AnalyticsOverview'
+import LeadManagement from './LeadManagement'
 import AffiliateManagementTable from './AffiliateManagementTable'
 import LinkGeneratorTool from './LinkGeneratorTool'
-import PayoutProcessingEngine from './PayoutProcessingEngine'
+import CommissionLedger from './CommissionLedger'
 import IntegrationGuide from './IntegrationGuide'
 import { motion } from 'framer-motion'
 
 const navItems = [
+  { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+  { id: 'leads' as const, label: 'Leads', icon: Users },
   { id: 'affiliates' as const, label: 'Affiliates', icon: Users },
   { id: 'link-generator' as const, label: 'Link Generator', icon: Link2 },
   { id: 'payouts' as const, label: 'Payouts', icon: CreditCard },
@@ -84,7 +88,7 @@ export default function AdminLayout() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
         </div>
-        <div className="flex border-t border-gray-800">
+        <div className="flex border-t border-gray-800 overflow-x-auto">
           {navItems.map(item => {
             const Icon = item.icon
             const isActive = adminTab === item.id
@@ -92,12 +96,12 @@ export default function AdminLayout() {
               <button
                 key={item.id}
                 onClick={() => setAdminTab(item.id)}
-                className={`flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium transition-all ${
+                className={`flex-1 min-w-0 flex flex-col items-center gap-1 py-2 text-xs font-medium transition-all ${
                   isActive ? 'text-purple-400 bg-gray-800' : 'text-gray-400'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {item.label}
+                <span className="truncate w-full text-center">{item.label}</span>
               </button>
             )
           })}
@@ -113,9 +117,11 @@ export default function AdminLayout() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
+            {adminTab === 'analytics' && <AnalyticsOverview />}
+            {adminTab === 'leads' && <LeadManagement />}
             {adminTab === 'affiliates' && <AffiliateManagementTable />}
             {adminTab === 'link-generator' && <LinkGeneratorTool />}
-            {adminTab === 'payouts' && <PayoutProcessingEngine />}
+            {adminTab === 'payouts' && <CommissionLedger />}
             {adminTab === 'integration' && <IntegrationGuide />}
           </motion.div>
         </div>

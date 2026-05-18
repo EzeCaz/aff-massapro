@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { MoreHorizontal, Search, Plus, Pencil, DollarSign, UserX, Loader2 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { MoreHorizontal, Loader2, CheckCircle2, XCircle, Clock, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface Affiliate {
@@ -19,175 +19,179 @@ interface Affiliate {
   name: string
   email: string
   phone: string | null
+  company: string | null
   isActive: boolean
+  isApproved: boolean
+  commissionType: string
+  customSignupComm: number | null
+  customEnterprise: number | null
+  customProfess: number | null
+  customBasic: number | null
+  notes: string | null
   totalTraffic: number
   totalConversions: number
   totalEarnings: number
   approvedBalance: number
   paidBalance: number
+  _count: { clicks: number; referrals: number; payouts: number }
+}
+
+interface Application {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  company: string | null
+  website: string | null
+  message: string | null
+  status: string
+  reviewedAt: string | null
+  reviewNotes: string | null
+  generatedAffid: string | null
   createdAt: string
-  _count?: { clicks: number; referrals: number; payouts: number }
 }
 
 export default function AffiliateManagementTable() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([])
+  const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null)
+  const [commissionType, setCommissionType] = useState('standard')
+  const [customSignup, setCustomSignup] = useState('')
+  const [customEnterprise, setCustomEnterprise] = useState('')
+  const [customProfess, setCustomProfess] = useState('')
+  const [customBasic, setCustomBasic] = useState('')
   const { toast } = useToast()
 
-  // Edit dialog state
-  const [editOpen, setEditOpen] = useState(false)
-  const [editAffiliate, setEditAffiliate] = useState<Affiliate | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editEmail, setEditEmail] = useState('')
-  const [editPhone, setEditPhone] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  // Balance dialog state
-  const [balanceOpen, setBalanceOpen] = useState(false)
-  const [balanceAffiliate, setBalanceAffiliate] = useState<Affiliate | null>(null)
-  const [balanceAmount, setBalanceAmount] = useState('')
-  const [balanceReason, setBalanceReason] = useState('')
-  const [balanceType, setBalanceType] = useState<'approved' | 'paid'>('approved')
-
-  // Create dialog state
-  const [createOpen, setCreateOpen] = useState(false)
-  const [createName, setCreateName] = useState('')
-  const [createEmail, setCreateEmail] = useState('')
-  const [createPhone, setCreatePhone] = useState('')
-  const [createAffid, setCreateAffid] = useState('')
-  const [creating, setCreating] = useState(false)
-
-  const fetchAffiliates = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/affiliates')
-      const data = await res.json()
-      setAffiliates(data)
+      const [affRes, appRes] = await Promise.all([
+        fetch('/api/affiliates'),
+        fetch('/api/applications'),
+      ])
+      const affData = await affRes.json()
+      const appData = await appRes.json()
+      setAffiliates(affData)
+      setApplications(appData)
     } catch {
-      toast({ title: 'Error', description: 'Failed to fetch affiliates', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Failed to fetch data', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
   }, [toast])
 
   useEffect(() => {
-    fetchAffiliates()
-  }, [fetchAffiliates])
+    fetchData()
+  }, [fetchData])
 
-  const filtered = affiliates.filter(a =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.email.toLowerCase().includes(search.toLowerCase()) ||
-    a.affid.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const handleEdit = (affiliate: Affiliate) => {
-    setEditAffiliate(affiliate)
-    setEditName(affiliate.name)
-    setEditEmail(affiliate.email)
-    setEditPhone(affiliate.phone || '')
-    setEditOpen(true)
-  }
-
-  const handleSaveEdit = async () => {
-    if (!editAffiliate) return
-    setSaving(true)
+  const handleApproveApplication = async (appId: string) => {
     try {
-      const res = await fetch(`/api/affiliates/${editAffiliate.id}`, {
+      const res = await fetch(`/api/applications/${appId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, email: editEmail, phone: editPhone }),
+        body: JSON.stringify({ status: 'approved' }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast({
+          title: 'Application Approved',
+          description: `Created affiliate ${data.generatedAffid}`,
+        })
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to approve application', variant: 'destructive' })
+    }
+  }
+
+  const handleRejectApplication = async (appId: string) => {
+    try {
+      const res = await fetch(`/api/applications/${appId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', reviewNotes: 'Rejected by admin' }),
       })
       if (res.ok) {
-        toast({ title: 'Success', description: 'Affiliate profile updated' })
-        setEditOpen(false)
-        fetchAffiliates()
+        toast({ title: 'Application Rejected' })
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to reject application', variant: 'destructive' })
+    }
+  }
+
+  const handleSaveCommission = async () => {
+    if (!editingAffiliate) return
+    try {
+      const body: Record<string, unknown> = { commissionType }
+      if (commissionType === 'custom') {
+        body.customSignupComm = customSignup ? parseFloat(customSignup) : null
+        body.customEnterprise = customEnterprise ? parseFloat(customEnterprise) : null
+        body.customProfess = customProfess ? parseFloat(customProfess) : null
+        body.customBasic = customBasic ? parseFloat(customBasic) : null
+      }
+      const res = await fetch(`/api/affiliates/${editingAffiliate.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        toast({ title: 'Commission structure updated' })
+        setEditDialogOpen(false)
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update commission', variant: 'destructive' })
+    }
+  }
+
+  const handleApproveAffiliate = async (affId: string) => {
+    try {
+      const res = await fetch(`/api/affiliates/${affId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isApproved: true, isActive: true }),
+      })
+      if (res.ok) {
+        toast({ title: 'Affiliate approved and activated' })
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to approve affiliate', variant: 'destructive' })
+    }
+  }
+
+  const handleToggleActive = async (affId: string, currentActive: boolean) => {
+    try {
+      const res = await fetch(`/api/affiliates/${affId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentActive }),
+      })
+      if (res.ok) {
+        toast({ title: `Affiliate ${!currentActive ? 'activated' : 'deactivated'}` })
+        fetchData()
       }
     } catch {
       toast({ title: 'Error', description: 'Failed to update affiliate', variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleBalanceAdjust = async () => {
-    if (!balanceAffiliate || !balanceAmount) return
-    setSaving(true)
-    try {
-      const amount = parseFloat(balanceAmount)
-      const field = balanceType === 'approved' ? 'approvedBalance' : 'paidBalance'
-      const currentBalance = balanceType === 'approved' ? balanceAffiliate.approvedBalance : balanceAffiliate.paidBalance
-      const newBalance = currentBalance + amount
-
-      const res = await fetch(`/api/affiliates/${balanceAffiliate.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: newBalance }),
-      })
-      if (res.ok) {
-        toast({
-          title: 'Balance Adjusted',
-          description: `${balanceType === 'approved' ? 'Approved' : 'Paid'} balance ${amount >= 0 ? 'increased' : 'decreased'} by $${Math.abs(amount).toFixed(2)}${balanceReason ? ` — ${balanceReason}` : ''}`,
-        })
-        setBalanceOpen(false)
-        setBalanceAmount('')
-        setBalanceReason('')
-        fetchAffiliates()
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to adjust balance', variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeactivate = async (affiliate: Affiliate) => {
-    try {
-      const res = await fetch(`/api/affiliates/${affiliate.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !affiliate.isActive }),
-      })
-      if (res.ok) {
-        toast({
-          title: affiliate.isActive ? 'Deactivated' : 'Activated',
-          description: `${affiliate.name} has been ${affiliate.isActive ? 'deactivated' : 'activated'}`,
-        })
-        fetchAffiliates()
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' })
-    }
-  }
-
-  const handleCreate = async () => {
-    if (!createName || !createEmail || !createAffid) return
-    setCreating(true)
-    try {
-      const res = await fetch('/api/affiliates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: createName, email: createEmail, phone: createPhone, affid: createAffid }),
-      })
-      if (res.ok) {
-        toast({ title: 'Success', description: 'Affiliate created successfully' })
-        setCreateOpen(false)
-        setCreateName('')
-        setCreateEmail('')
-        setCreatePhone('')
-        setCreateAffid('')
-        fetchAffiliates()
-      } else {
-        const data = await res.json()
-        toast({ title: 'Error', description: data.error, variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to create affiliate', variant: 'destructive' })
-    } finally {
-      setCreating(false)
     }
   }
 
   const formatCurrency = (amount: number) => `$${Math.round(amount).toLocaleString('en-US')}`
+
+  const commissionBadge = (type: string) => {
+    switch (type) {
+      case 'premium':
+        return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Premium</Badge>
+      case 'custom':
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Custom</Badge>
+      default:
+        return <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">Standard</Badge>
+    }
+  }
+
+  const pendingApps = applications.filter(a => a.status === 'pending')
 
   if (loading) {
     return (
@@ -199,165 +203,141 @@ export default function AffiliateManagementTable() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Affiliate Management</h1>
-          <p className="text-sm text-gray-500">Manage all affiliates and their accounts</p>
-        </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Affiliate
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Affiliate</DialogTitle>
-              <DialogDescription>Add a new affiliate to the program</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Affiliate ID</Label>
-                <Input placeholder="e.g. MP-JOHN-006" value={createAffid} onChange={e => setCreateAffid(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input placeholder="John Smith" value={createName} onChange={e => setCreateName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input placeholder="john@example.com" type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone (optional)</Label>
-                <Input placeholder="+1 (555) 000-0000" value={createPhone} onChange={e => setCreatePhone(e.target.value)} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreate} disabled={creating} className="bg-purple-600 hover:bg-purple-700">
-                {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Create Affiliate
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Affiliate Management</h1>
+        <p className="text-sm text-gray-500">Manage affiliates, applications, and commission structures</p>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-purple-100">
-          <CardContent className="p-4">
-            <div className="text-xs text-gray-500">Total Affiliates</div>
-            <div className="text-xl font-bold text-gray-900">{affiliates.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-purple-100">
-          <CardContent className="p-4">
-            <div className="text-xs text-gray-500">Active</div>
-            <div className="text-xl font-bold text-purple-600">{affiliates.filter(a => a.isActive).length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-purple-100">
-          <CardContent className="p-4">
-            <div className="text-xs text-gray-500">Total Earnings</div>
-            <div className="text-xl font-bold text-gray-900 truncate">{formatCurrency(affiliates.reduce((sum, a) => sum + a.totalEarnings, 0))}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-purple-100">
-          <CardContent className="p-4">
-            <div className="text-xs text-gray-500">Total Traffic</div>
-            <div className="text-xl font-bold text-gray-900">{affiliates.reduce((sum, a) => sum + a.totalTraffic, 0).toLocaleString()}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input
-          placeholder="Search by name, email, or ID..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
+      {/* Pending Applications */}
+      {pendingApps.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              Pending Applications ({pendingApps.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>AffID</TableHead>
-                  <TableHead className="text-right">Traffic</TableHead>
-                  <TableHead className="text-right">Conversions</TableHead>
-                  <TableHead className="text-right">Earnings</TableHead>
-                  <TableHead className="text-right">Approved</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Company</TableHead>
+                  <TableHead className="hidden md:table-cell">Message</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(affiliate => (
-                  <TableRow key={affiliate.id}>
-                    <TableCell className="font-medium">{affiliate.name}</TableCell>
-                    <TableCell className="text-gray-500 text-sm">{affiliate.email}</TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">{affiliate.affid}</code>
-                    </TableCell>
-                    <TableCell className="text-right">{affiliate.totalTraffic.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{affiliate.totalConversions}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(affiliate.totalEarnings)}</TableCell>
-                    <TableCell className="text-right text-amber-600">{formatCurrency(affiliate.approvedBalance)}</TableCell>
-                    <TableCell className="text-right text-gray-500">{formatCurrency(affiliate.paidBalance)}</TableCell>
-                    <TableCell>
-                      <Badge variant={affiliate.isActive ? 'default' : 'secondary'} className={affiliate.isActive ? 'bg-purple-100 text-purple-700 hover:bg-purple-100' : 'bg-gray-100 text-gray-500'}>
-                        {affiliate.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
+                {pendingApps.map(app => (
+                  <TableRow key={app.id}>
+                    <TableCell className="font-medium">{app.name}</TableCell>
+                    <TableCell className="text-sm">{app.email}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-gray-500">{app.company || '—'}</TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-gray-500 max-w-xs truncate">{app.message || '—'}</TableCell>
                     <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-300 text-green-600 hover:bg-green-50 h-8 text-xs"
+                          onClick={() => handleApproveApplication(app.id)}
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50 h-8 text-xs"
+                          onClick={() => handleRejectApplication(app.id)}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Affiliates Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Affiliates ({affiliates.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Earnings</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {affiliates.map(aff => (
+                  <TableRow key={aff.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{aff.name}</div>
+                        <div className="text-xs text-gray-500">{aff.affid} · {aff.email}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{commissionBadge(aff.commissionType)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {aff.isApproved ? (
+                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">Approved</Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-xs">Pending</Badge>
+                        )}
+                        {aff.isActive ? (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">Active</Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-xs">Inactive</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(aff.totalEarnings)}</TableCell>
+                    <TableCell className="text-right font-medium text-purple-700">{formatCurrency(aff.approvedBalance)}</TableCell>
+                    <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(affiliate)}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit Profile
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingAffiliate(aff)
+                              setCommissionType(aff.commissionType)
+                              setCustomSignup(aff.customSignupComm?.toString() || '')
+                              setCustomEnterprise(aff.customEnterprise?.toString() || '')
+                              setCustomProfess(aff.customProfess?.toString() || '')
+                              setCustomBasic(aff.customBasic?.toString() || '')
+                              setEditDialogOpen(true)
+                            }}
+                          >
+                            Edit Commission
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setBalanceAffiliate(affiliate); setBalanceOpen(true) }}>
-                            <DollarSign className="w-4 h-4 mr-2" />
-                            Adjust Balance
+                          {!aff.isApproved && (
+                            <DropdownMenuItem onClick={() => handleApproveAffiliate(aff.id)}>
+                              Approve Affiliate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleToggleActive(aff.id, aff.isActive)}>
+                            {aff.isActive ? 'Deactivate' : 'Activate'}
                           </DropdownMenuItem>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-600">
-                                <UserX className="w-4 h-4 mr-2" />
-                                {affiliate.isActive ? 'Deactivate' : 'Activate'}
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{affiliate.isActive ? 'Deactivate' : 'Activate'} Account</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to {affiliate.isActive ? 'deactivate' : 'activate'} {affiliate.name}? {affiliate.isActive ? 'They will no longer be able to access the affiliate portal.' : 'They will regain access to the affiliate portal.'}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeactivate(affiliate)} className="bg-purple-600 hover:bg-purple-700">
-                                  Confirm
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -369,95 +349,76 @@ export default function AffiliateManagementTable() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      {/* Edit Commission Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Affiliate Profile</DialogTitle>
-            <DialogDescription>Update affiliate information</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input value={editName} onChange={e => setEditName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleSaveEdit} disabled={saving} className="bg-purple-600 hover:bg-purple-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Balance Dialog */}
-      <Dialog open={balanceOpen} onOpenChange={setBalanceOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adjust Balance — {balanceAffiliate?.name}</DialogTitle>
+            <DialogTitle>Edit Commission Structure</DialogTitle>
             <DialogDescription>
-              Current Approved: {balanceAffiliate ? formatCurrency(balanceAffiliate.approvedBalance) : '$0.00'} | 
-              Current Paid: {balanceAffiliate ? formatCurrency(balanceAffiliate.paidBalance) : '$0.00'}
+              {editingAffiliate?.name} ({editingAffiliate?.affid})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Balance Type</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={balanceType === 'approved' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setBalanceType('approved')}
-                  className={balanceType === 'approved' ? 'bg-purple-600 hover:bg-purple-700' : ''}
-                >
-                  Approved Balance
-                </Button>
-                <Button
-                  type="button"
-                  variant={balanceType === 'paid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setBalanceType('paid')}
-                  className={balanceType === 'paid' ? 'bg-purple-600 hover:bg-purple-700' : ''}
-                >
-                  Paid Balance
-                </Button>
+              <Label>Commission Type</Label>
+              <Select value={commissionType} onValueChange={setCommissionType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard ($100 signup, $10-100/mo)</SelectItem>
+                  <SelectItem value="premium">Premium ($150 signup, $10-100/mo)</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {commissionType === 'custom' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Signup Commission ($)</Label>
+                  <Input
+                    type="number"
+                    value={customSignup}
+                    onChange={e => setCustomSignup(e.target.value)}
+                    placeholder="100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Enterprise Monthly ($)</Label>
+                  <Input
+                    type="number"
+                    value={customEnterprise}
+                    onChange={e => setCustomEnterprise(e.target.value)}
+                    placeholder="100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Professional Monthly ($)</Label>
+                  <Input
+                    type="number"
+                    value={customProfess}
+                    onChange={e => setCustomProfess(e.target.value)}
+                    placeholder="50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Basic Monthly ($)</Label>
+                  <Input
+                    type="number"
+                    value={customBasic}
+                    onChange={e => setCustomBasic(e.target.value)}
+                    placeholder="10"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Amount (+/-)</Label>
-              <Input
-                type="number"
-                placeholder="e.g. 100 or -50"
-                value={balanceAmount}
-                onChange={e => setBalanceAmount(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">Use positive values to add, negative to subtract</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Reason (optional)</Label>
-              <Input
-                placeholder="e.g. Bonus for Q1 performance"
-                value={balanceReason}
-                onChange={e => setBalanceReason(e.target.value)}
-              />
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+              <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSaveCommission}>Save</Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleBalanceAdjust} disabled={saving || !balanceAmount} className="bg-purple-600 hover:bg-purple-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Apply Adjustment
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

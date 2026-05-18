@@ -34,16 +34,29 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, email, phone, isActive, approvedBalance, paidBalance, totalEarnings } = body
+    const {
+      name, email, phone, company, isActive, isApproved,
+      approvedBalance, paidBalance, totalEarnings,
+      commissionType, customSignupComm, customEnterprise, customProfess, customBasic,
+      notes,
+    } = body
 
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
     if (phone !== undefined) updateData.phone = phone
+    if (company !== undefined) updateData.company = company
     if (isActive !== undefined) updateData.isActive = isActive
+    if (isApproved !== undefined) updateData.isApproved = isApproved
     if (approvedBalance !== undefined) updateData.approvedBalance = approvedBalance
     if (paidBalance !== undefined) updateData.paidBalance = paidBalance
     if (totalEarnings !== undefined) updateData.totalEarnings = totalEarnings
+    if (commissionType !== undefined) updateData.commissionType = commissionType
+    if (customSignupComm !== undefined) updateData.customSignupComm = customSignupComm
+    if (customEnterprise !== undefined) updateData.customEnterprise = customEnterprise
+    if (customProfess !== undefined) updateData.customProfess = customProfess
+    if (customBasic !== undefined) updateData.customBasic = customBasic
+    if (notes !== undefined) updateData.notes = notes
 
     const affiliate = await db.affiliate.update({
       where: { id },

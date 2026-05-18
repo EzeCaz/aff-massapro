@@ -8,78 +8,155 @@ datasource db {
 }
 
 model Affiliate {
-  id               String    @id @default(cuid())
-  affid            String    @unique
+  id               String   @id @default(cuid())
+  affid            String   @unique
   name             String
-  email            String    @unique
+  email            String   @unique
   phone            String?
-  isActive         Boolean   @default(true)
-  totalTraffic     Int       @default(0)
-  totalConversions Int       @default(0)
-  totalEarnings    Float     @default(0)
-  approvedBalance  Float     @default(0)
-  paidBalance      Float     @default(0)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  password         String   @default("changeme")
+  company          String?
+  isActive         Boolean  @default(false)
+  isApproved       Boolean  @default(false)
+  commissionType   String   @default("standard")  // "standard", "premium", "custom"
+  customSignupComm Float?                          // Override $100 signup commission
+  customEnterprise Float?                          // Override $100/mo Enterprise
+  customProfess    Float?                          // Override $50/mo Professional
+  customBasic      Float?                          // Override $10/mo Basic
+  notes            String?
+  totalTraffic     Int      @default(0)
+  totalConversions Int      @default(0)
+  totalEarnings    Float    @default(0)
+  approvedBalance  Float    @default(0)
+  paidBalance      Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   clicks           Click[]
   referrals        Referral[]
   payouts          Payout[]
+  ledgerEntries    CommissionLedger[]
+  applications     AffiliateApplication[]
+
+  @@index([affid])
+  @@index([email])
+  @@index([isActive])
+  @@index([isApproved])
+}
+
+model AffiliateApplication {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  phone          String?
+  company        String?
+  website        String?
+  message        String?
+  status         String   @default("pending")  // "pending", "approved", "rejected"
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  reviewNotes    String?
+  generatedAffid String?
+  createdAt      DateTime @default(now())
+  affiliate      Affiliate? @relation(fields: [affiliateId], references: [id])
+  affiliateId    String?
+
+  @@index([status])
+  @@index([email])
 }
 
 model Click {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   affiliateId String
   affid       String
   utmSource   String?
   utmMedium   String?
   utmCampaign String?
   utmContent  String?
+  utmTerm     String?
+  pageUrl     String?
+  eventType   String   @default("pageview")  // "pageview", "button_click"
+  eventId     String?                          // e.g. "btn_hero_demo", "btn_pricing_tier"
+  sessionId   String?
   ipAddress   String?
   userAgent   String?
-  landingPage String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
 
   @@index([affiliateId])
   @@index([affid])
   @@index([createdAt])
+  @@index([eventType])
+  @@index([eventId])
 }
 
 model Referral {
-  id                String    @id @default(cuid())
+  id                String   @id @default(cuid())
   affiliateId       String
   affid             String
   leadName          String
   leadEmail         String?
-  planType          String
-  leadStatus        String
-  signupCommission  Float     @default(0)
-  monthlyCommission Float     @default(0)
-  monthsActive      Int       @default(0)
-  totalCommission   Float     @default(0)
-  utmCampaign       String?
-  utmContent        String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  leadPhone         String?
+  leadCompany       String?
+  planType          String   // "Enterprise", "Professional", "Basic"
+  leadStatus        String   // "Lead", "Booked Call", "Paying Customer", "Churned"
+  signupCommission  Float    @default(0)
+  monthlyCommission Float    @default(0)
+  monthsActive      Int      @default(0)
+  totalCommission   Float    @default(0)
+  // First-Touch UTMs
+  ftUtmSource       String?
+  ftUtmMedium       String?
+  ftUtmCampaign     String?
+  ftUtmContent      String?
+  ftUtmTerm         String?
+  // Last-Touch UTMs
+  ltUtmSource       String?
+  ltUtmMedium       String?
+  ltUtmCampaign     String?
+  ltUtmContent      String?
+  ltUtmTerm         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   affiliate         Affiliate @relation(fields: [affiliateId], references: [id])
+  ledgerEntries     CommissionLedger[]
 
   @@index([affiliateId])
   @@index([affid])
+  @@index([leadStatus])
+  @@index([leadEmail])
   @@index([createdAt])
 }
 
 model Payout {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   affiliateId String
   affid       String
   amount      Float
-  status      String    @default("pending")
+  status      String   @default("pending") // "pending", "approved", "processed"
   periodStart DateTime
   periodEnd   DateTime
   processedAt DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
 
   @@index([affiliateId])
   @@index([status])
+}
+
+model CommissionLedger {
+  id          String   @id @default(cuid())
+  affiliateId String
+  affid       String
+  referralId  String
+  type        String   // "signup", "recurring", "adjustment"
+  amount      Float
+  description String?
+  monthNumber Int?     // For recurring: which month (1-12)
+  createdAt   DateTime @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  referral    Referral  @relation(fields: [referralId], references: [id])
+
+  @@index([affiliateId])
+  @@index([affid])
+  @@index([type])
+  @@index([createdAt])
 }

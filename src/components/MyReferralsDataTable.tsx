@@ -16,8 +16,8 @@ interface Referral {
   monthlyCommission: number
   totalCommission: number
   monthsActive: number
-  utmCampaign: string | null
-  utmContent: string | null
+  ltUtmCampaign: string | null
+  ltUtmContent: string | null
   createdAt: string
 }
 
@@ -55,10 +55,10 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
   const statusBadge = (status: string) => {
     switch (status) {
       case 'Lead':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-100">{status}</Badge>
-      case 'Call Booked':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">{status}</Badge>
+      case 'Booked Call':
         return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{status}</Badge>
-      case 'Active Subscriber':
+      case 'Paying Customer':
         return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{status}</Badge>
       case 'Churned':
         return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{status}</Badge>
@@ -133,7 +133,7 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
                       <TableCell className="text-right font-medium">{formatCurrency(ref.totalCommission)}</TableCell>
                       <TableCell className="text-sm text-gray-500">
                         <code className="text-xs bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">
-                          {ref.utmCampaign || '—'}
+                          {ref.ltUtmCampaign || '—'}
                         </code>
                       </TableCell>
                     </TableRow>

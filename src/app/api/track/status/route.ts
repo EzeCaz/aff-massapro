@@ -17,8 +17,23 @@ const COMMISSION_MAP: Record<string, number> = {
   Basic: 10,
 }
 
-const VALID_STATUSES = ['Lead', 'Call Booked', 'Active Subscriber', 'Churned']
+const VALID_STATUSES = ['Lead', 'Booked Call', 'Paying Customer', 'Churned']
 const VALID_PLANS = ['Enterprise', 'Professional', 'Basic']
+
+function getSignupComm(affiliate: { commissionType: string; customSignupComm: number | null }): number {
+  if (affiliate.commissionType === 'premium') return 150
+  if (affiliate.commissionType === 'custom' && affiliate.customSignupComm) return affiliate.customSignupComm
+  return 100
+}
+
+function getMonthlyComm(affiliate: { commissionType: string; customEnterprise: number | null; customProfess: number | null; customBasic: number | null }, planType: string): number {
+  if (affiliate.commissionType === 'custom') {
+    if (planType === 'Enterprise' && affiliate.customEnterprise) return affiliate.customEnterprise
+    if (planType === 'Professional' && affiliate.customProfess) return affiliate.customProfess
+    if (planType === 'Basic' && affiliate.customBasic) return affiliate.customBasic
+  }
+  return COMMISSION_MAP[planType] || 10
+}
 
 // PUT /api/track/status - Lead status update webhook
 export async function PUT(request: NextRequest) {
@@ -41,7 +56,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (!VALID_STATUSES.includes(new_status)) {
+    // Map legacy statuses
+    let normalizedStatus = new_status
+    if (new_status === 'Call Booked') normalizedStatus = 'Booked Call'
+    if (new_status === 'Active Subscriber') normalizedStatus = 'Paying Customer'
+
+    if (!VALID_STATUSES.includes(normalizedStatus)) {
       return NextResponse.json(
         { error: `Invalid new_status. Must be one of: ${VALID_STATUSES.join(', ')}` },
         { status: 400, headers: corsHeaders }
@@ -96,30 +116,40 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Get the affiliate for commission calculations
+    const affiliate = await db.affiliate.findUnique({ where: { id: referral.affiliateId } })
+    if (!affiliate) {
+      return NextResponse.json(
+        { error: 'Affiliate not found for this referral' },
+        { status: 404, headers: corsHeaders }
+      )
+    }
+
     const previousStatus = referral.leadStatus
     const updateData: Record<string, unknown> = {
-      leadStatus: new_status,
+      leadStatus: normalizedStatus,
     }
 
     // Calculate commission changes
     let signupCommissionDelta = 0
     let conversionDelta = 0
 
-    // If transitioning to "Active Subscriber" from a non-active status
-    if (new_status === 'Active Subscriber' && previousStatus !== 'Active Subscriber') {
-      signupCommissionDelta = 100
+    // If transitioning to "Paying Customer" from a non-paying status
+    if (normalizedStatus === 'Paying Customer' && previousStatus !== 'Paying Customer') {
+      const signupComm = getSignupComm(affiliate)
+      signupCommissionDelta = signupComm
       conversionDelta = 1
-      updateData.signupCommission = 100
+      updateData.signupCommission = signupComm
     }
-
-    // If transitioning from "Active Subscriber" to something else (shouldn't normally happen, but handle gracefully)
-    // We don't reverse the signup commission once earned
 
     // Update plan_type if provided
     if (plan_type) {
       updateData.planType = plan_type
-      updateData.monthlyCommission = COMMISSION_MAP[plan_type] || 10
+      updateData.monthlyCommission = getMonthlyComm(affiliate, plan_type)
     }
+
+    // Track previous months_active for recurring commission detection
+    const prevMonthsActive = referral.monthsActive
 
     // Update months_active if provided
     if (months_active !== undefined) {
@@ -127,9 +157,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Recalculate total commission
-    const finalSignupCommission = updateData.signupCommission as number ?? referral.signupCommission
-    const finalMonthlyCommission = updateData.monthlyCommission as number ?? referral.monthlyCommission
-    const finalMonthsActive = updateData.monthsActive as number ?? referral.monthsActive
+    const finalSignupCommission = (updateData.signupCommission as number) ?? referral.signupCommission
+    const finalMonthlyCommission = (updateData.monthlyCommission as number) ?? referral.monthlyCommission
+    const finalMonthsActive = (updateData.monthsActive as number) ?? referral.monthsActive
     updateData.totalCommission = finalSignupCommission + (finalMonthlyCommission * finalMonthsActive)
 
     // Update the referral
@@ -137,6 +167,47 @@ export async function PUT(request: NextRequest) {
       where: { id: referral.id },
       data: updateData,
     })
+
+    // Create commission ledger entries
+    if (signupCommissionDelta > 0) {
+      await db.commissionLedger.create({
+        data: {
+          affiliateId: affiliate.id,
+          affid: referral.affid,
+          referralId: referral.id,
+          type: 'signup',
+          amount: signupCommissionDelta,
+          description: `Signup commission for ${referral.leadName} (${referral.planType})`,
+        },
+      })
+    }
+
+    // Handle recurring commissions when months_active increments for a paying customer
+    if (normalizedStatus === 'Paying Customer' && months_active !== undefined && months_active > prevMonthsActive) {
+      const monthlyComm = getMonthlyComm(affiliate, plan_type || referral.planType)
+      for (let m = prevMonthsActive + 1; m <= months_active; m++) {
+        await db.commissionLedger.create({
+          data: {
+            affiliateId: affiliate.id,
+            affid: referral.affid,
+            referralId: referral.id,
+            type: 'recurring',
+            amount: monthlyComm,
+            description: `Month ${m} recurring commission for ${referral.leadName} (${plan_type || referral.planType})`,
+            monthNumber: m,
+          },
+        })
+
+        // Update affiliate balances for each recurring month
+        await db.affiliate.update({
+          where: { id: affiliate.id },
+          data: {
+            totalEarnings: { increment: monthlyComm },
+            approvedBalance: { increment: monthlyComm },
+          },
+        })
+      }
+    }
 
     // Update affiliate stats if there are commission changes
     if (signupCommissionDelta !== 0 || conversionDelta !== 0) {

@@ -24,11 +24,15 @@ async function recordClick(params: {
   utm_medium?: string | null
   utm_campaign?: string | null
   utm_content?: string | null
+  utm_term?: string | null
   page_url?: string | null
+  event_type?: string | null
+  event_id?: string | null
+  session_id?: string | null
   ip_address?: string | null
   user_agent?: string | null
 }) {
-  const { affid, utm_source, utm_medium, utm_campaign, utm_content, page_url, ip_address, user_agent } = params
+  const { affid, utm_source, utm_medium, utm_campaign, utm_content, utm_term, page_url, event_type, event_id, session_id, ip_address, user_agent } = params
 
   if (!affid) {
     return { error: 'affid is required', status: 400 }
@@ -42,6 +46,8 @@ async function recordClick(params: {
     return { error: 'Affiliate is not active', status: 404 }
   }
 
+  const eventType = event_type || (event_id ? 'button_click' : 'pageview')
+
   const click = await db.click.create({
     data: {
       affiliateId: affiliate.id,
@@ -50,7 +56,11 @@ async function recordClick(params: {
       utmMedium: utm_medium || null,
       utmCampaign: utm_campaign || null,
       utmContent: utm_content || null,
-      landingPage: page_url || null,
+      utmTerm: utm_term || null,
+      pageUrl: page_url || null,
+      eventType,
+      eventId: event_id || null,
+      sessionId: session_id || null,
       ipAddress: ip_address || null,
       userAgent: user_agent || null,
     },
@@ -74,7 +84,11 @@ export async function POST(request: NextRequest) {
       utm_medium: body.utm_medium,
       utm_campaign: body.utm_campaign,
       utm_content: body.utm_content,
+      utm_term: body.utm_term,
       page_url: body.page_url,
+      event_type: body.event_type,
+      event_id: body.event_id,
+      session_id: body.session_id,
       ip_address: body.ip_address || request.headers.get('x-forwarded-for') || null,
       user_agent: body.user_agent || request.headers.get('user-agent') || null,
     })
@@ -111,7 +125,11 @@ export async function GET(request: NextRequest) {
       utm_medium: searchParams.get('utm_medium'),
       utm_campaign: searchParams.get('utm_campaign'),
       utm_content: searchParams.get('utm_content'),
+      utm_term: searchParams.get('utm_term'),
       page_url: searchParams.get('page_url'),
+      event_type: searchParams.get('event_type'),
+      event_id: searchParams.get('event_id'),
+      session_id: searchParams.get('session_id'),
       ip_address: request.headers.get('x-forwarded-for') || null,
       user_agent: request.headers.get('user-agent') || null,
     })

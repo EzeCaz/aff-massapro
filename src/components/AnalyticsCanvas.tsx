@@ -4,21 +4,23 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
+  AreaChart, Area,
+  LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell,
 } from 'recharts'
 
 interface StatsData {
-  trafficData: { date: string; label: string; clicks: number }[]
+  trafficData: { date: string; label: string; clicks: number; pageviews: number; buttonClicks: number }[]
   funnelData: { stage: string; count: number; percentage: number }[]
+  eventBreakdown: Record<string, number>
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  btn_hero_demo: 'Hero Demo',
+  btn_pricing_tier: 'Pricing Tier',
+  btn_cta_signup: 'CTA Signup',
+  btn_nav_contact: 'Nav Contact',
 }
 
 export default function AnalyticsCanvas({ affid }: { affid: string }) {
@@ -45,22 +47,33 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
 
   const funnelColors = ['#9333ea', '#a855f7', '#c084fc', '#d8b4fe']
 
+  // Event breakdown chart data
+  const eventData = Object.entries(stats.eventBreakdown || {}).map(([id, count]) => ({
+    name: EVENT_LABELS[id] || id,
+    count,
+    id,
+  }))
+
   return (
     <div className="grid lg:grid-cols-2 gap-6">
-      {/* Traffic Chart */}
+      {/* Traffic Area Chart */}
       <Card className="border-purple-100">
         <CardHeader>
-          <CardTitle className="text-base">Traffic (Clicks) — Last 30 Days</CardTitle>
-          <CardDescription>Daily click activity on your referral links</CardDescription>
+          <CardTitle className="text-base">Traffic & Conversions — Last 30 Days</CardTitle>
+          <CardDescription>Page views and button clicks over time</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.trafficData}>
+              <AreaChart data={stats.trafficData}>
                 <defs>
-                  <linearGradient id="clickGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="pvGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#9333ea" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#9333ea" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="bcGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -80,19 +93,24 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
                     border: '1px solid #e9d5ff',
                     boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
                   }}
-                  labelFormatter={(label: string) => `Date: ${label}`}
-                  formatter={(value: number) => [`${value} clicks`, 'Traffic']}
                 />
-                <Line
+                <Area
                   type="monotone"
-                  dataKey="clicks"
+                  dataKey="pageviews"
                   stroke="#9333ea"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 5, fill: '#9333ea', stroke: '#fff', strokeWidth: 2 }}
-                  fill="url(#clickGradient)"
+                  strokeWidth={2}
+                  fill="url(#pvGradient)"
+                  name="Page Views"
                 />
-              </LineChart>
+                <Area
+                  type="monotone"
+                  dataKey="buttonClicks"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  fill="url(#bcGradient)"
+                  name="Button Clicks"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
@@ -154,6 +172,38 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Event Breakdown */}
+      {eventData.length > 0 && (
+        <Card className="border-purple-100 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Button Click Events</CardTitle>
+            <CardDescription>Which CTAs are getting clicked on your referral links</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={eventData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: '1px solid #e9d5ff',
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
+                    {eventData.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={funnelColors[index % funnelColors.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

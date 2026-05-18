@@ -17,6 +17,21 @@ const COMMISSION_MAP: Record<string, number> = {
   Basic: 10,
 }
 
+function getSignupComm(affiliate: { commissionType: string; customSignupComm: number | null }): number {
+  if (affiliate.commissionType === 'premium') return 150
+  if (affiliate.commissionType === 'custom' && affiliate.customSignupComm) return affiliate.customSignupComm
+  return 100
+}
+
+function getMonthlyComm(affiliate: { commissionType: string; customEnterprise: number | null; customProfess: number | null; customBasic: number | null }, planType: string): number {
+  if (affiliate.commissionType === 'custom') {
+    if (planType === 'Enterprise' && affiliate.customEnterprise) return affiliate.customEnterprise
+    if (planType === 'Professional' && affiliate.customProfess) return affiliate.customProfess
+    if (planType === 'Basic' && affiliate.customBasic) return affiliate.customBasic
+  }
+  return COMMISSION_MAP[planType] || 10
+}
+
 // POST /api/track/lead - Lead capture webhook
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +40,22 @@ export async function POST(request: NextRequest) {
       affid,
       lead_name,
       lead_email,
+      lead_phone,
+      lead_company,
       plan_type,
+      // First-touch UTMs
+      ft_utm_source,
+      ft_utm_medium,
+      ft_utm_campaign,
+      ft_utm_content,
+      ft_utm_term,
+      // Last-touch UTMs
+      lt_utm_source,
+      lt_utm_medium,
+      lt_utm_campaign,
+      lt_utm_content,
+      lt_utm_term,
+      // Legacy UTM support (maps to last-touch)
       utm_campaign,
       utm_content,
       initial_status,
@@ -64,7 +94,7 @@ export async function POST(request: NextRequest) {
     const leadStatus = initial_status || 'Lead'
 
     // Validate lead status
-    const validStatuses = ['Lead', 'Call Booked', 'Active Subscriber', 'Churned']
+    const validStatuses = ['Lead', 'Booked Call', 'Paying Customer', 'Churned']
     if (!validStatuses.includes(leadStatus)) {
       return NextResponse.json(
         { error: `Invalid initial_status. Must be one of: ${validStatuses.join(', ')}` },
@@ -82,9 +112,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate commissions
-    const monthlyCommission = COMMISSION_MAP[planType] || 10
-    const signupCommission = leadStatus === 'Active Subscriber' ? 100 : 0
+    // Calculate commissions based on affiliate's commission structure
+    const monthlyCommission = getMonthlyComm(affiliate, planType)
+    const isPayingCustomer = leadStatus === 'Paying Customer'
+    const signupCommission = isPayingCustomer ? getSignupComm(affiliate) : 0
 
     // Create referral record
     const referral = await db.referral.create({
@@ -93,26 +124,54 @@ export async function POST(request: NextRequest) {
         affid,
         leadName: lead_name,
         leadEmail: lead_email || null,
+        leadPhone: lead_phone || null,
+        leadCompany: lead_company || null,
         planType,
         leadStatus,
         signupCommission,
         monthlyCommission,
         monthsActive: 0,
         totalCommission: signupCommission,
-        utmCampaign: utm_campaign || null,
-        utmContent: utm_content || null,
+        ftUtmSource: ft_utm_source || null,
+        ftUtmMedium: ft_utm_medium || null,
+        ftUtmCampaign: ft_utm_campaign || null,
+        ftUtmContent: ft_utm_content || null,
+        ftUtmTerm: ft_utm_term || null,
+        ltUtmSource: lt_utm_source || utm_campaign ? null : null,  // use lt_ if provided, else legacy
+        ltUtmMedium: lt_utm_medium || null,
+        ltUtmCampaign: lt_utm_campaign || utm_campaign || null,
+        ltUtmContent: lt_utm_content || utm_content || null,
+        ltUtmTerm: lt_utm_term || null,
       },
     })
 
+    // Create commission ledger entry if signup commission applies
+    if (signupCommission > 0) {
+      await db.commissionLedger.create({
+        data: {
+          affiliateId: affiliate.id,
+          affid,
+          referralId: referral.id,
+          type: 'signup',
+          amount: signupCommission,
+          description: `Signup commission for ${lead_name} (${planType})`,
+        },
+      })
+    }
+
     // Update affiliate stats
-    await db.affiliate.update({
-      where: { id: affiliate.id },
-      data: {
-        totalConversions: { increment: 1 },
-        totalEarnings: { increment: signupCommission },
-        approvedBalance: { increment: signupCommission },
-      },
-    })
+    const affiliateUpdate: Record<string, unknown> = {}
+    if (signupCommission > 0) {
+      affiliateUpdate.totalConversions = { increment: 1 }
+      affiliateUpdate.totalEarnings = { increment: signupCommission }
+      affiliateUpdate.approvedBalance = { increment: signupCommission }
+    }
+    if (Object.keys(affiliateUpdate).length > 0) {
+      await db.affiliate.update({
+        where: { id: affiliate.id },
+        data: affiliateUpdate,
+      })
+    }
 
     return NextResponse.json(
       {
@@ -122,6 +181,8 @@ export async function POST(request: NextRequest) {
           affid: referral.affid,
           leadName: referral.leadName,
           leadEmail: referral.leadEmail,
+          leadPhone: referral.leadPhone,
+          leadCompany: referral.leadCompany,
           planType: referral.planType,
           leadStatus: referral.leadStatus,
           signupCommission: referral.signupCommission,
