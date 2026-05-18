@@ -18,10 +18,10 @@ export default function FinancialSnapshotCards({ affiliate }: { affiliate: Affil
       label: 'Total Lifetime Earnings',
       value: formatCurrency(affiliate.totalEarnings),
       icon: DollarSign,
-      bgClass: 'bg-emerald-100',
-      iconClass: 'text-emerald-600',
-      valueClass: 'text-emerald-700',
-      borderClass: 'border-emerald-200',
+      bgClass: 'bg-purple-100',
+      iconClass: 'text-purple-600',
+      valueClass: 'text-purple-700',
+      borderClass: 'border-purple-200',
     },
     {
       label: 'Unpaid / Pending Balance',
@@ -50,7 +50,7 @@ export default function FinancialSnapshotCards({ affiliate }: { affiliate: Affil
         return (
           <Card
             key={card.label}
-            className={`border ${card.borderClass} hover:shadow-md transition-shadow duration-200`}
+            className={`border ${card.borderClass} hover:shadow-lg hover:shadow-purple-100/50 transition-all duration-300 bg-gradient-to-b from-white to-purple-50/30`}
           >
             <CardContent className="p-4 flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl ${card.bgClass} flex items-center justify-center`}>

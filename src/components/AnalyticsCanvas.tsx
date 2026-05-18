@@ -38,17 +38,17 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
   if (loading || !stats) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     )
   }
 
-  const funnelColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+  const funnelColors = ['#9333ea', '#a855f7', '#c084fc', '#d8b4fe']
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       {/* Traffic Chart */}
-      <Card>
+      <Card className="border-purple-100">
         <CardHeader>
           <CardTitle className="text-base">Traffic (Clicks) — Last 30 Days</CardTitle>
           <CardDescription>Daily click activity on your referral links</CardDescription>
@@ -59,8 +59,8 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
               <LineChart data={stats.trafficData}>
                 <defs>
                   <linearGradient id="clickGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#9333ea" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#9333ea" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -77,8 +77,8 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
                 <Tooltip
                   contentStyle={{
                     borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    border: '1px solid #e9d5ff',
+                    boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
                   }}
                   labelFormatter={(label: string) => `Date: ${label}`}
                   formatter={(value: number) => [`${value} clicks`, 'Traffic']}
@@ -86,10 +86,10 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
                 <Line
                   type="monotone"
                   dataKey="clicks"
-                  stroke="#10b981"
+                  stroke="#9333ea"
                   strokeWidth={2.5}
                   dot={false}
-                  activeDot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 5, fill: '#9333ea', stroke: '#fff', strokeWidth: 2 }}
                   fill="url(#clickGradient)"
                 />
               </LineChart>
@@ -99,7 +99,7 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
       </Card>
 
       {/* Conversion Funnel */}
-      <Card>
+      <Card className="border-purple-100">
         <CardHeader>
           <CardTitle className="text-base">Conversion Funnel</CardTitle>
           <CardDescription>From traffic to paid signups</CardDescription>
@@ -123,8 +123,8 @@ export default function AnalyticsCanvas({ affid }: { affid: string }) {
                 <Tooltip
                   contentStyle={{
                     borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    border: '1px solid #e9d5ff',
+                    boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
                   }}
                   formatter={(value: number, _name: string, props: { payload: { percentage: number } }) => [
                     `${value} (${props.payload.percentage}%)`,

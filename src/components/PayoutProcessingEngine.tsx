@@ -149,9 +149,9 @@ export default function PayoutProcessingEngine() {
       case 'pending':
         return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
       case 'approved':
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100"><CheckCircle2 className="w-3 h-3 mr-1" />Approved</Badge>
+        return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100"><CheckCircle2 className="w-3 h-3 mr-1" />Approved</Badge>
       case 'processed':
-        return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100"><DollarSign className="w-3 h-3 mr-1" />Processed</Badge>
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100"><DollarSign className="w-3 h-3 mr-1" />Processed</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -160,7 +160,7 @@ export default function PayoutProcessingEngine() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     )
   }
@@ -186,26 +186,26 @@ export default function PayoutProcessingEngine() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-blue-200">
+        <Card className="border-purple-200">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6 text-purple-600" />
             </div>
             <div>
               <div className="text-sm text-gray-500">Approved</div>
-              <div className="text-xl font-bold text-blue-600">{formatCurrency(totalApproved)}</div>
+              <div className="text-xl font-bold text-purple-600">{formatCurrency(totalApproved)}</div>
               <div className="text-xs text-gray-400">{approvedPayouts.length} payout(s)</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200">
+        <Card className="border-green-200">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-emerald-600" />
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-green-600" />
             </div>
             <div>
               <div className="text-sm text-gray-500">Processed</div>
-              <div className="text-xl font-bold text-emerald-600">{formatCurrency(totalProcessed)}</div>
+              <div className="text-xl font-bold text-green-600">{formatCurrency(totalProcessed)}</div>
               <div className="text-xs text-gray-400">{processedPayouts.length} payout(s)</div>
             </div>
           </CardContent>
@@ -227,7 +227,7 @@ export default function PayoutProcessingEngine() {
             </SelectContent>
           </Select>
           {selectedIds.size > 0 && (
-            <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+            <span className="text-sm text-purple-600">{selectedIds.size} selected</span>
           )}
         </div>
         <div className="flex gap-2">
@@ -235,7 +235,7 @@ export default function PayoutProcessingEngine() {
             onClick={handleApprove}
             disabled={processing || selectedIds.size === 0}
             variant="outline"
-            className="border-blue-300 text-blue-600 hover:bg-blue-50"
+            className="border-purple-300 text-purple-600 hover:bg-purple-50"
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Approve Selected
@@ -243,7 +243,7 @@ export default function PayoutProcessingEngine() {
           <Button
             onClick={handleProcess}
             disabled={processing || selectedIds.size === 0}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-purple-600 hover:bg-purple-700"
           >
             {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
             Process Payment
@@ -290,7 +290,7 @@ export default function PayoutProcessingEngine() {
                       </TableCell>
                       <TableCell className="font-medium">{payout.affiliate.name}</TableCell>
                       <TableCell>
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">{payout.affid}</code>
+                        <code className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">{payout.affid}</code>
                       </TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(payout.amount)}</TableCell>
                       <TableCell className="text-sm text-gray-500">

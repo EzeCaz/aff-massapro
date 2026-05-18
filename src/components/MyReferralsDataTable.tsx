@@ -57,9 +57,9 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
       case 'Lead':
         return <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-100">{status}</Badge>
       case 'Call Booked':
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{status}</Badge>
+        return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{status}</Badge>
       case 'Active Subscriber':
-        return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{status}</Badge>
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{status}</Badge>
       case 'Churned':
         return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{status}</Badge>
       default:
@@ -86,7 +86,7 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     )
   }
@@ -94,7 +94,7 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
   return (
     <div className="space-y-6">
       {/* Referrals Table */}
-      <Card>
+      <Card className="border-purple-100">
         <CardHeader>
           <CardTitle className="text-base">My Referrals</CardTitle>
           <CardDescription>All leads and conversions from your referral links</CardDescription>
@@ -132,7 +132,7 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
                       <TableCell className="text-right text-sm">{formatCurrency(ref.monthlyCommission)}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(ref.totalCommission)}</TableCell>
                       <TableCell className="text-sm text-gray-500">
-                        <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                        <code className="text-xs bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">
                           {ref.utmCampaign || '—'}
                         </code>
                       </TableCell>
@@ -147,10 +147,10 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
 
       {/* UTM Breakdown */}
       {utmPerformance.length > 0 && (
-        <Card>
+        <Card className="border-purple-100">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-500" />
+              <Trophy className="w-5 h-5 text-purple-500" />
               Campaign Performance Breakdown
             </CardTitle>
             <CardDescription>Conversion rates by UTM campaign</CardDescription>
@@ -164,30 +164,30 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
                     key={campaign.campaign}
                     className={`p-4 rounded-lg border ${
                       campaign.conversionRate >= 50
-                        ? 'border-emerald-200 bg-emerald-50'
+                        ? 'border-purple-200 bg-purple-50'
                         : campaign.conversionRate >= 25
                         ? 'border-amber-200 bg-amber-50'
                         : 'border-gray-200 bg-gray-50'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <code className="text-sm font-medium">{campaign.campaign}</code>
+                      <code className="text-sm font-medium text-purple-800">{campaign.campaign}</code>
                       {campaign.conversionRate >= 50 && (
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-xs">
+                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">
                           Top
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">{campaign.total} leads</span>
-                      <span className="font-medium">{campaign.conversions} conversions</span>
+                      <span className="font-medium text-purple-700">{campaign.conversions} conversions</span>
                     </div>
                     <div className="mt-2">
                       <div className="w-full bg-white rounded-full h-2">
                         <div
                           className={`h-2 rounded-full ${
                             campaign.conversionRate >= 50
-                              ? 'bg-emerald-500'
+                              ? 'bg-purple-500'
                               : campaign.conversionRate >= 25
                               ? 'bg-amber-500'
                               : 'bg-gray-400'

@@ -26,7 +26,7 @@ interface GeneratedLink {
 export default function LinkGeneratorTool() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([])
   const [loading, setLoading] = useState(true)
-  const [baseUrl, setBaseUrl] = useState('https://massapro.com/')
+  const [baseUrl, setBaseUrl] = useState('https://receptionist.massapro.com/')
   const [selectedAffid, setSelectedAffid] = useState('')
   const [utmContent, setUtmContent] = useState('')
   const [generatedLink, setGeneratedLink] = useState('')
@@ -96,7 +96,7 @@ export default function LinkGeneratorTool() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     )
   }
@@ -105,15 +105,15 @@ export default function LinkGeneratorTool() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Link Generator</h1>
-        <p className="text-sm text-gray-500">Generate tracking links for affiliates with UTM parameters</p>
+        <p className="text-sm text-gray-500">Generate tracking links for the MassaPro AI Secretary landing page</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Generator */}
-        <Card>
+        <Card className="border-purple-100">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-emerald-600" />
+              <Link2 className="w-5 h-5 text-purple-600" />
               Generate Tracking Link
             </CardTitle>
             <CardDescription>Configure your affiliate tracking link parameters</CardDescription>
@@ -124,8 +124,9 @@ export default function LinkGeneratorTool() {
               <Input
                 value={baseUrl}
                 onChange={e => setBaseUrl(e.target.value)}
-                placeholder="https://massapro.com/"
+                placeholder="https://receptionist.massapro.com/"
               />
+              <p className="text-xs text-purple-500">Defaults to the MassaPro AI Secretary landing page</p>
             </div>
 
             <div className="space-y-2">
@@ -157,7 +158,7 @@ export default function LinkGeneratorTool() {
             <Button
               onClick={handleGenerate}
               disabled={!baseUrl || !selectedAffid || generating}
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
+              className="w-full bg-purple-600 hover:bg-purple-700"
             >
               {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
               Generate Link
@@ -167,7 +168,7 @@ export default function LinkGeneratorTool() {
 
         {/* Preview */}
         <div className="space-y-6">
-          <Card>
+          <Card className="border-purple-100">
             <CardHeader>
               <CardTitle>Link Preview</CardTitle>
               <CardDescription>Auto-generated preview as you configure</CardDescription>
@@ -175,7 +176,7 @@ export default function LinkGeneratorTool() {
             <CardContent>
               {previewLink ? (
                 <div className="space-y-3">
-                  <div className="p-3 bg-gray-50 rounded-lg border break-all text-sm font-mono">
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-100 break-all text-sm font-mono text-purple-800">
                     {previewLink}
                   </div>
                   <div className="flex gap-2">
@@ -183,7 +184,7 @@ export default function LinkGeneratorTool() {
                       variant="outline"
                       size="sm"
                       onClick={() => copyToClipboard(previewLink)}
-                      className="flex-1"
+                      className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-50"
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy Link
@@ -192,6 +193,7 @@ export default function LinkGeneratorTool() {
                       variant="outline"
                       size="sm"
                       onClick={() => window.open(previewLink, '_blank')}
+                      className="border-purple-200 text-purple-600 hover:bg-purple-50"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </Button>
@@ -208,17 +210,17 @@ export default function LinkGeneratorTool() {
 
           {/* Generated Result */}
           {generatedLink && (
-            <Card className="border-emerald-200 bg-emerald-50">
+            <Card className="border-purple-300 bg-gradient-to-b from-purple-50 to-white">
               <CardHeader className="pb-3">
-                <CardTitle className="text-emerald-800 text-base">✓ Generated Link</CardTitle>
+                <CardTitle className="text-purple-800 text-base">Link Generated</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-3 bg-white rounded-lg border break-all text-sm font-mono mb-3">
+                <div className="p-3 bg-white rounded-lg border border-purple-200 break-all text-sm font-mono mb-3">
                   {generatedLink}
                 </div>
                 <Button
                   onClick={() => copyToClipboard(generatedLink)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   <Copy className="w-4 h-4 mr-2" />
                   Copy to Clipboard
@@ -231,22 +233,22 @@ export default function LinkGeneratorTool() {
 
       {/* History */}
       {linkHistory.length > 0 && (
-        <Card>
+        <Card className="border-purple-100">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <History className="w-5 h-5 text-gray-400" />
+              <History className="w-5 h-5 text-purple-400" />
               Recent Generated Links
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {linkHistory.map((link, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg">
+                <div key={i} className="flex items-center justify-between gap-4 p-3 bg-purple-50/50 rounded-lg border border-purple-100">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">{link.affiliateName} ({link.affid})</div>
+                    <div className="text-sm font-medium text-purple-800">{link.affiliateName} ({link.affid})</div>
                     <div className="text-xs text-gray-500 truncate font-mono">{link.url}</div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(link.url)}>
+                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(link.url)} className="text-purple-600 hover:text-purple-800 hover:bg-purple-100">
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>

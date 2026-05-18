@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MassaPro Affiliate Management System",
-  description: "Comprehensive dual-sided affiliate management system for MassaPro. Manage affiliates, track conversions, process payouts, and grow revenue.",
-  keywords: ["MassaPro", "Affiliate", "Management", "Dashboard", "Tracking", "Payouts"],
-  authors: [{ name: "MassaPro Team" }],
+  title: "MassaPro — Affiliate Dashboard | AI Agentic Receptionist",
+  description: "MassaPro Affiliate Management System for the AI Secretary platform. Track referrals, monitor conversions, and manage payouts.",
+  keywords: ["MassaPro", "AI Receptionist", "Affiliate", "Referral", "Dashboard", "AI Secretary"],
+  authors: [{ name: "MassaPro" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

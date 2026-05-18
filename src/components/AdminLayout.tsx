@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { Users, Link2, CreditCard, ArrowLeft, TrendingUp } from 'lucide-react'
+import { Users, Link2, CreditCard, ArrowLeft, Sparkles } from 'lucide-react'
 import AffiliateManagementTable from './AffiliateManagementTable'
 import LinkGeneratorTool from './LinkGeneratorTool'
 import PayoutProcessingEngine from './PayoutProcessingEngine'
@@ -23,8 +23,8 @@ export default function AdminLayout() {
       <aside className="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-purple-600 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="font-bold text-sm">MassaPro</h2>
@@ -42,7 +42,7 @@ export default function AdminLayout() {
                 onClick={() => setAdminTab(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-purple-600 text-white'
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                 }`}
               >
@@ -65,11 +65,11 @@ export default function AdminLayout() {
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
+      <div className="md:hidden fixed top-0 left:0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-sm">Manager</span>
           </div>
@@ -91,7 +91,7 @@ export default function AdminLayout() {
                 key={item.id}
                 onClick={() => setAdminTab(item.id)}
                 className={`flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium transition-all ${
-                  isActive ? 'text-emerald-400 bg-gray-800' : 'text-gray-400'
+                  isActive ? 'text-purple-400 bg-gray-800' : 'text-gray-400'
                 }`}
               >
                 <Icon className="w-4 h-4" />

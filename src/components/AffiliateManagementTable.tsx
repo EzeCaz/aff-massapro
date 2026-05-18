@@ -192,7 +192,7 @@ export default function AffiliateManagementTable() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     )
   }
@@ -206,7 +206,7 @@ export default function AffiliateManagementTable() {
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
+            <Button className="bg-purple-600 hover:bg-purple-700">
               <Plus className="w-4 h-4 mr-2" />
               Add Affiliate
             </Button>
@@ -235,7 +235,7 @@ export default function AffiliateManagementTable() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreate} disabled={creating} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={handleCreate} disabled={creating} className="bg-purple-600 hover:bg-purple-700">
                 {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Create Affiliate
               </Button>
@@ -246,25 +246,25 @@ export default function AffiliateManagementTable() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-purple-100">
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Total Affiliates</div>
             <div className="text-2xl font-bold text-gray-900">{affiliates.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-purple-100">
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Active</div>
-            <div className="text-2xl font-bold text-emerald-600">{affiliates.filter(a => a.isActive).length}</div>
+            <div className="text-2xl font-bold text-purple-600">{affiliates.filter(a => a.isActive).length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-purple-100">
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Total Earnings</div>
             <div className="text-2xl font-bold text-gray-900">{formatCurrency(affiliates.reduce((sum, a) => sum + a.totalEarnings, 0))}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-purple-100">
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Total Traffic</div>
             <div className="text-2xl font-bold text-gray-900">{affiliates.reduce((sum, a) => sum + a.totalTraffic, 0).toLocaleString()}</div>
@@ -308,7 +308,7 @@ export default function AffiliateManagementTable() {
                     <TableCell className="font-medium">{affiliate.name}</TableCell>
                     <TableCell className="text-gray-500 text-sm">{affiliate.email}</TableCell>
                     <TableCell>
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">{affiliate.affid}</code>
+                      <code className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">{affiliate.affid}</code>
                     </TableCell>
                     <TableCell className="text-right">{affiliate.totalTraffic.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{affiliate.totalConversions}</TableCell>
@@ -316,7 +316,7 @@ export default function AffiliateManagementTable() {
                     <TableCell className="text-right text-amber-600">{formatCurrency(affiliate.approvedBalance)}</TableCell>
                     <TableCell className="text-right text-gray-500">{formatCurrency(affiliate.paidBalance)}</TableCell>
                     <TableCell>
-                      <Badge variant={affiliate.isActive ? 'default' : 'secondary'} className={affiliate.isActive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-500'}>
+                      <Badge variant={affiliate.isActive ? 'default' : 'secondary'} className={affiliate.isActive ? 'bg-purple-100 text-purple-700 hover:bg-purple-100' : 'bg-gray-100 text-gray-500'}>
                         {affiliate.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
@@ -352,7 +352,7 @@ export default function AffiliateManagementTable() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeactivate(affiliate)} className="bg-emerald-600 hover:bg-emerald-700">
+                                <AlertDialogAction onClick={() => handleDeactivate(affiliate)} className="bg-purple-600 hover:bg-purple-700">
                                   Confirm
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -391,7 +391,7 @@ export default function AffiliateManagementTable() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveEdit} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleSaveEdit} disabled={saving} className="bg-purple-600 hover:bg-purple-700">
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Save Changes
             </Button>
@@ -418,7 +418,7 @@ export default function AffiliateManagementTable() {
                   variant={balanceType === 'approved' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setBalanceType('approved')}
-                  className={balanceType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  className={balanceType === 'approved' ? 'bg-purple-600 hover:bg-purple-700' : ''}
                 >
                   Approved Balance
                 </Button>
@@ -427,7 +427,7 @@ export default function AffiliateManagementTable() {
                   variant={balanceType === 'paid' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setBalanceType('paid')}
-                  className={balanceType === 'paid' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  className={balanceType === 'paid' ? 'bg-purple-600 hover:bg-purple-700' : ''}
                 >
                   Paid Balance
                 </Button>
@@ -453,7 +453,7 @@ export default function AffiliateManagementTable() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleBalanceAdjust} disabled={saving || !balanceAmount} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleBalanceAdjust} disabled={saving || !balanceAmount} className="bg-purple-600 hover:bg-purple-700">
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Apply Adjustment
             </Button>

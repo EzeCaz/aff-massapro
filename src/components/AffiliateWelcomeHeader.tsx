@@ -16,7 +16,7 @@ export default function AffiliateWelcomeHeader({ affiliate }: { affiliate: Affil
   const { toast } = useToast()
 
   const slug = affiliate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-  const trackingLink = `https://massapro.com/?affid=${affiliate.affid}&utm_source=affiliate&utm_medium=cpc&utm_campaign=${slug}`
+  const trackingLink = `https://receptionist.massapro.com/?affid=${affiliate.affid}&utm_source=affiliate&utm_medium=cpc&utm_campaign=${slug}`
 
   const handleCopy = async () => {
     try {
@@ -36,22 +36,22 @@ export default function AffiliateWelcomeHeader({ affiliate }: { affiliate: Affil
           Welcome back, {affiliate.name}
         </h2>
         <p className="text-sm text-gray-500">
-          Your Tracking ID: <code className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-mono">{affiliate.affid}</code>
+          Your Tracking ID: <code className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono">{affiliate.affid}</code>
         </p>
       </div>
 
-      <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-white">
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 via-purple-50/50 to-white">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-emerald-800 mb-1">Your Personalized Referral Link</p>
-              <div className="p-2 bg-white rounded-lg border break-all text-sm font-mono text-gray-700">
+              <p className="text-sm font-medium text-purple-800 mb-1">Your Personalized Referral Link</p>
+              <div className="p-2 bg-white rounded-lg border border-purple-200 break-all text-sm font-mono text-purple-700">
                 {trackingLink}
               </div>
             </div>
             <Button
               onClick={handleCopy}
-              className="bg-emerald-600 hover:bg-emerald-700 flex-shrink-0"
+              className="bg-purple-600 hover:bg-purple-700 flex-shrink-0"
             >
               {copied ? (
                 <>
