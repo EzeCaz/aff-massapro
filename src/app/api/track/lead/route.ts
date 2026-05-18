@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         ftUtmCampaign: ft_utm_campaign || null,
         ftUtmContent: ft_utm_content || null,
         ftUtmTerm: ft_utm_term || null,
-        ltUtmSource: lt_utm_source || utm_campaign ? null : null,  // use lt_ if provided, else legacy
+        ltUtmSource: lt_utm_source || null,
         ltUtmMedium: lt_utm_medium || null,
         ltUtmCampaign: lt_utm_campaign || utm_campaign || null,
         ltUtmContent: lt_utm_content || utm_content || null,
