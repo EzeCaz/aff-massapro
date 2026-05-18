@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Affiliate {
+  id               String    @id @default(cuid())
+  affid            String    @unique
+  name             String
+  email            String    @unique
+  phone            String?
+  isActive         Boolean   @default(true)
+  totalTraffic     Int       @default(0)
+  totalConversions Int       @default(0)
+  totalEarnings    Float     @default(0)
+  approvedBalance  Float     @default(0)
+  paidBalance      Float     @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  clicks           Click[]
+  referrals        Referral[]
+  payouts          Payout[]
+}
+
+model Click {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affid       String
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  ipAddress   String?
+  userAgent   String?
+  landingPage String?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId])
+  @@index([affid])
+  @@index([createdAt])
+}
+
+model Referral {
+  id                String    @id @default(cuid())
+  affiliateId       String
+  affid             String
+  leadName          String
+  leadEmail         String?
+  planType          String
+  leadStatus        String
+  signupCommission  Float     @default(0)
+  monthlyCommission Float     @default(0)
+  monthsActive      Int       @default(0)
+  totalCommission   Float     @default(0)
+  utmCampaign       String?
+  utmContent        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  affiliate         Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId])
+  @@index([affid])
+  @@index([createdAt])
+}
+
+model Payout {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affid       String
+  amount      Float
+  status      String    @default("pending")
+  periodStart DateTime
+  periodEnd   DateTime
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId])
+  @@index([status])
+}
