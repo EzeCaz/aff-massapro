@@ -46,3 +46,32 @@
 - ESLint passed with no errors
 - Dev server compiling and serving pages successfully
 - API routes returning data correctly from database
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add full e-commerce funnel tracking (add_to_cart, purchase, funnel steps) with UTM attribution
+
+Work Log:
+- Upgraded tracker JS from v2.0 to v3.0 with 5 new public API methods:
+  - MassaProAffiliate.trackCart({ plan_type, quantity, cart_value, currency })
+  - MassaProAffiliate.trackPurchase({ order_id, revenue, currency, plan_type, customer_email, customer_name })
+  - MassaProAffiliate.trackFunnelStep(step_name, extraData)
+  - MassaProAffiliate.getFunnelProgress() - returns cookie-stored funnel steps
+- Added funnel progress tracking via massapro_funnel cookie (stores which steps the visitor completed)
+- Added buildAttributionPayload() utility to centralize UTM + affid + session data for all tracking calls
+- Added PurchaseEvent model to Prisma schema with full UTM attribution (first-touch + last-touch), revenue, order_id, plan_type, funnel_steps (JSON)
+- Created /api/track/purchase endpoint that:
+  - Stores add_to_cart, purchase, and funnel_step events in PurchaseEvent table
+  - For purchase events: auto-creates or updates Referral record to "Paying Customer"
+  - Auto-generates commission ledger entries on purchase
+  - Updates affiliate stats (conversions, earnings, balance)
+- Tested full funnel: add_to_cart → purchase with UTM attribution → commission auto-creation ✅
+- Built and deployed with keep-alive.sh
+
+Stage Summary:
+- Full e-commerce funnel tracking implemented: landing → button click → add to cart → purchase
+- All events linked to UTM parameters (first-touch + last-touch) via cookies
+- Purchase events auto-trigger commission calculations
+- Funnel steps tracked in cookie and stored as JSON in PurchaseEvent.funnelSteps
+- Server running on port 3000, all endpoints verified working

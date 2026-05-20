@@ -35,6 +35,8 @@ model Affiliate {
   payouts          Payout[]
   ledgerEntries    CommissionLedger[]
   applications     AffiliateApplication[]
+  events           AffiliateEvent[]
+  purchases        PurchaseEvent[]
 
   @@index([affid])
   @@index([email])
@@ -158,5 +160,59 @@ model CommissionLedger {
   @@index([affiliateId])
   @@index([affid])
   @@index([type])
+  @@index([createdAt])
+}
+
+model AffiliateEvent {
+  id          String   @id @default(cuid())
+  eventName   String
+  affid       String?
+  utmCampaign String?
+  pageUrl     String?
+  createdAt   DateTime @default(now())
+
+  affiliate   Affiliate? @relation(fields: [affid], references: [affid])
+
+  @@index([affid])
+  @@index([eventName])
+  @@index([createdAt])
+}
+
+model PurchaseEvent {
+  id              String   @id @default(cuid())
+  affiliateId     String?
+  affid           String?
+  eventType       String   // "add_to_cart", "purchase", "funnel_step"
+  orderId         String?
+  revenue         Float    @default(0)
+  currency        String   @default("USD")
+  planType        String?
+  quantity        Int      @default(1)
+  cartValue       Float    @default(0)
+  customerEmail   String?
+  customerName    String?
+  sessionId       String?
+  // First-Touch UTMs
+  ftUtmSource     String?
+  ftUtmMedium     String?
+  ftUtmCampaign   String?
+  ftUtmContent    String?
+  ftUtmTerm       String?
+  // Last-Touch UTMs
+  ltUtmSource     String?
+  ltUtmMedium     String?
+  ltUtmCampaign   String?
+  ltUtmContent    String?
+  ltUtmTerm       String?
+  pageUrl         String?
+  funnelSteps     String?  // JSON array of funnel step names
+  createdAt       DateTime @default(now())
+
+  affiliate       Affiliate? @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId])
+  @@index([affid])
+  @@index([eventType])
+  @@index([planType])
   @@index([createdAt])
 }
