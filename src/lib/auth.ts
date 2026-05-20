@@ -69,7 +69,7 @@ export function setAuthCookie(
     name: COOKIE_NAMES[type],
     value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Allow cookies over HTTP (Caddy handles HTTPS termination)
     sameSite: 'lax',
     path: '/',
     maxAge: 86400, // 24 hours
@@ -86,7 +86,7 @@ export function clearAuthCookies(response: NextResponse): NextResponse {
       name,
       value: '',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Allow cookies over HTTP (Caddy handles HTTPS termination)
       sameSite: 'lax',
       path: '/',
       maxAge: 0,

@@ -42,7 +42,8 @@ export default function AdminLogin() {
       })
       setView('admin')
     } catch (err) {
-      setError('Network error. Please try again.')
+      console.error('Login error:', err)
+      setError('Network error. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
