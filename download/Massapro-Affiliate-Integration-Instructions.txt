@@ -1,0 +1,889 @@
+================================================================================
+  MASSAPRO AFFILIATE DASHBOARD — COMPLETE INTEGRATION INSTRUCTIONS
+================================================================================
+  Version: 3.0
+  Last Updated: 2026-05-20
+  Dashboard: https://aff-massapro.space-z.ai
+  Website:   https://receptionist.massapro.com
+
+================================================================================
+  ANSWERS TO PRE-INTEGRATION QUESTIONS
+================================================================================
+
+QUESTION 1: DASHBOARD URL MISMATCH
+------------------------------------
+  The correct production dashboard URL is:
+
+    https://aff-massapro.space-z.ai
+
+  The "preview" URL (https://preview-f43bf3a5-...space.chatglm.site) is a
+  temporary development/preview URL that was used during the build process.
+  It may change or become unavailable. ALWAYS use the stable
+  aff-massapro.space-z.ai domain in your website integration code.
+
+  VERDICT: Use https://aff-massapro.space-z.ai as the dashboardUrl in your
+  MassaProAffiliate.config() call and as the tracker script src.
+
+
+QUESTION 2: TRACKER JS URL MISMATCH
+-------------------------------------
+  The correct URL to load the tracker script is:
+
+    https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+
+  This is the same domain as the dashboard. Do NOT use the preview URL
+  for the script src. The preview URL is temporary.
+
+  VERDICT: Use https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+
+
+QUESTION 3: HAS trackEvent() BEEN ADDED TO THE HOSTED TRACKER JS?
+-------------------------------------------------------------------
+  YES. The hosted tracker JS (v3.0) now includes ALL of these methods:
+
+    - config({ dashboardUrl })
+    - trackEvent(eventId)
+    - trackLead({ lead_name, lead_email, ... })
+    - trackCart({ plan_type, quantity, cart_value })
+    - trackPurchase({ order_id, revenue, plan_type, customer_email, ... })
+    - trackFunnelStep(stepName, extraData)
+    - getAttribution()
+    - getFirstTouch()
+    - getSessionId()
+    - getFunnelProgress()
+
+  The trackEvent() method was previously missing but has been added. The
+  tracker JS is served from the dashboard at the URL above.
+
+  VERDICT: trackEvent() is present and working. No manual update needed.
+
+
+QUESTION 4: ARE ALL API ENDPOINTS DEPLOYED AND WORKING?
+---------------------------------------------------------
+  YES. All four tracking API endpoints are deployed on the dashboard:
+
+    1. POST/GET  /api/track/click     — Click & pageview tracking
+    2. POST      /api/track/lead      — Lead form submissions
+    3. POST/GET  /api/track/event     — Generic event tracking (NEW — just added)
+    4. POST      /api/track/purchase  — Cart, purchase, and funnel step events
+    5. PUT       /api/track/status    — Update lead/referral status
+
+  The /api/track/event endpoint was previously missing (causing silent 404s
+  for trackEvent() calls). It has now been created and deployed. It accepts
+  both GET (pixel-based, returns 1x1 GIF) and POST (JSON-based).
+
+  VERDICT: All endpoints are live. The event endpoint issue is fixed.
+
+
+QUESTION 5: SHOULD PURCHASE/BUTTON EVENTS APPEAR IN THE INSTRUCTIONS?
+-----------------------------------------------------------------------
+  YES. The tracker JS v3.0 supports full e-commerce funnel tracking:
+
+    - trackEvent('btn_buy_basic')          — Button click events
+    - trackEvent('btn_buy_professional')    — Button click events
+    - trackEvent('btn_buy_enterprise')      — Button click events
+    - trackEvent('btn_get_now')             — Button click events
+    - trackCart({ plan_type, cart_value })  — Add to cart
+    - trackPurchase({ order_id, revenue })  — Completed purchase
+    - trackFunnelStep('checkout_start')     — Funnel progress
+
+  These are all documented in detail below in the FULL INTEGRATION GUIDE.
+
+  VERDICT: The instructions below now cover all button, cart, and purchase
+  event tracking. The dashboard records these in the PurchaseEvent and
+  AffiliateEvent database tables, and purchase events automatically trigger
+  the commission engine.
+
+
+================================================================================
+  FULL INTEGRATION GUIDE
+================================================================================
+
+---------------------------------------------------------------
+  STEP 1: EMBED THE TRACKER SCRIPT ON YOUR WEBSITE
+---------------------------------------------------------------
+
+Add these two <script> tags to EVERY page of receptionist.massapro.com,
+ideally just before the closing </body> tag (or in your site-wide layout):
+
+  <!-- MassaPro Affiliate Tracker v3.0 -->
+  <script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
+  <script>
+    MassaProAffiliate.config({
+      dashboardUrl: 'https://aff-massapro.space-z.ai'
+    });
+  </script>
+
+WHAT THIS DOES:
+  - When a visitor arrives with ?affid=XXX in the URL, the script:
+    (a) Saves the affiliate ID in a 30-day cookie (massapro_affiliate)
+    (b) Saves first-touch UTM parameters in a separate 30-day cookie
+       (massapro_ft) — these are NEVER overwritten
+    (c) Creates a session cookie (massapro_session, 1 day)
+    (d) Fires a click tracking event to /api/track/click
+    (e) Saves "landing" as the first funnel step
+
+  - On subsequent page views (without ?affid=), the script:
+    (a) Reads the existing affiliate cookie
+    (b) Updates last-touch UTM parameters if new UTM params are present
+    (c) Does NOT overwrite first-touch UTMs
+
+COOKIE DETAILS:
+  - massapro_affiliate: 30-day expiry, SameSite=Lax, contains:
+      { affid, utm_source, utm_medium, utm_campaign, utm_content,
+        utm_term, ft_utm_source, ft_utm_medium, ft_utm_campaign,
+        ft_utm_content, ft_utm_term, landing_page, timestamp }
+  - massapro_ft: 30-day expiry, first-touch UTMs (set once, never updated)
+  - massapro_session: 1-day expiry, session tracking ID
+  - massapro_funnel: 30-day expiry, funnel step progress
+
+
+---------------------------------------------------------------
+  STEP 2: TRACK BUTTON CLICK EVENTS
+---------------------------------------------------------------
+
+Add MassaProAffiliate.trackEvent(eventId) calls to your CTA buttons.
+This fires TWO tracking requests:
+  (1) A 1x1 pixel GET to /api/track/event — for event analytics
+  (2) A POST to /api/track/click with event_type='button_click' — for
+      click analytics with full UTM attribution
+
+EXAMPLES — Add onclick handlers to your pricing/CTA buttons:
+
+  <!-- Hero CTA -->
+  <button onclick="MassaProAffiliate.trackEvent('btn_hero_demo')">
+    Book a Demo
+  </button>
+
+  <!-- Pricing Section Buttons -->
+  <button onclick="MassaProAffiliate.trackEvent('btn_buy_basic')">
+    Get Basic Plan
+  </button>
+
+  <button onclick="MassaProAffiliate.trackEvent('btn_buy_professional')">
+    Get Professional Plan
+  </button>
+
+  <button onclick="MassaProAffiliate.trackEvent('btn_buy_enterprise')">
+    Get Enterprise Plan
+  </button>
+
+  <!-- Generic CTA -->
+  <button onclick="MassaProAffiliate.trackEvent('btn_get_now')">
+    Get Started Now
+  </button>
+
+  <!-- Navigation Links -->
+  <a href="/pricing"
+     onclick="MassaProAffiliate.trackEvent('nav_pricing')">
+    View Pricing
+  </a>
+
+EVENT ID NAMING CONVENTION:
+  Use a consistent prefix to categorize events:
+    btn_      — Button clicks (btn_hero_demo, btn_buy_basic)
+    nav_      — Navigation clicks (nav_pricing, nav_features)
+    form_     — Form interactions (form_started, form_submitted)
+    video_    — Video interactions (video_play, video_complete)
+    scroll_   — Scroll milestones (scroll_pricing, scroll_testimonials)
+
+NOTE: If no affiliate cookie exists (i.e., the visitor was NOT referred
+by an affiliate), trackEvent() will still fire the event pixel but will
+skip the click POST (since there's no affiliate to attribute the click to).
+The event is still recorded in the AffiliateEvent table for analytics.
+
+
+---------------------------------------------------------------
+  STEP 3: TRACK LEAD FORM SUBMISSIONS
+---------------------------------------------------------------
+
+When a visitor submits a lead form (e.g., contact form, demo request),
+call MassaProAffiliate.trackLead() to record the lead and attribute it
+to the referring affiliate.
+
+  MassaProAffiliate.trackLead({
+    lead_name: 'John Smith',
+    lead_email: 'john@company.com',
+    lead_phone: '+1-555-0123',
+    lead_company: 'Acme Corp',
+    plan_type: 'Professional',        // "Basic", "Professional", "Enterprise"
+    initial_status: 'Lead'            // "Lead", "Booked Call", "Paying Customer"
+  })
+  .then(function(result) {
+    console.log('Lead tracked:', result.data);
+  })
+  .catch(function(err) {
+    console.error('Lead tracking failed:', err);
+  });
+
+REQUIREMENTS:
+  - lead_name is REQUIRED
+  - An affiliate cookie MUST exist (visitor must have come via ?affid=XXX)
+  - If no affiliate cookie exists, the call is rejected with a warning
+
+COMMISSION TRIGGER:
+  If initial_status is set to 'Paying Customer', the signup commission
+  ($100 standard / $150 premium / custom) is immediately awarded to the
+  affiliate. For other statuses, the commission is awarded later when the
+  status is updated to 'Paying Customer' via /api/track/status.
+
+FIRST-TOUCH + LAST-TOUCH UTM ATTRIBUTION:
+  The trackLead() call automatically includes both first-touch and
+  last-touch UTM parameters from the cookies. No manual UTM passing
+  is needed — the tracker script handles it internally.
+
+
+---------------------------------------------------------------
+  STEP 4: TRACK ADD-TO-CART EVENTS
+---------------------------------------------------------------
+
+When a visitor selects a plan or adds an item to their cart, call
+MassaProAffiliate.trackCart(). This records the cart event in the
+PurchaseEvent table and advances the funnel tracking.
+
+  MassaProAffiliate.trackCart({
+    plan_type: 'Professional',       // "Basic", "Professional", "Enterprise"
+    quantity: 1,
+    cart_value: 99,                  // Dollar amount of the cart item
+    currency: 'USD'                  // Optional, defaults to "USD"
+  })
+  .then(function(result) {
+    console.log('Cart event tracked:', result.data);
+  })
+  .catch(function(err) {
+    console.error('Cart tracking failed:', err);
+  });
+
+WHAT THIS DOES:
+  - Saves "add_to_cart" as a funnel step in the cookie
+  - Fires an event pixel: add_to_cart_Professional (or whichever plan)
+  - POSTs to /api/track/purchase with event_type: 'add_to_cart'
+  - Records the event in the PurchaseEvent database table
+  - Does NOT trigger any commission (commissions only fire on purchase)
+
+NOTE: Even if no affiliate cookie exists, the cart event is still
+recorded (without affiliate attribution) for overall analytics.
+
+
+---------------------------------------------------------------
+  STEP 5: TRACK PURCHASE EVENTS (COMPLETED PAYMENTS)
+---------------------------------------------------------------
+
+When a payment is confirmed (after Stripe, PayPal, or other payment
+processor confirms the transaction), call MassaProAffiliate.trackPurchase().
+This is the most important tracking call — it triggers the commission engine.
+
+  MassaProAffiliate.trackPurchase({
+    order_id: 'ORD-12345',           // Your internal order ID
+    revenue: 99,                     // Total payment amount
+    currency: 'USD',                 // Optional, defaults to "USD"
+    plan_type: 'Professional',       // "Basic", "Professional", "Enterprise"
+    customer_email: 'john@company.com',
+    customer_name: 'John Smith'
+  })
+  .then(function(result) {
+    console.log('Purchase tracked:', result.data);
+  })
+  .catch(function(err) {
+    console.error('Purchase tracking failed:', err);
+  });
+
+WHAT THIS DOES:
+  - Saves "purchase" as a funnel step in the cookie
+  - Fires an event pixel: purchase_Professional (or whichever plan)
+  - POSTs to /api/track/purchase with event_type: 'purchase'
+  - Records the event in the PurchaseEvent database table with full
+    first-touch and last-touch UTM attribution
+  - If an affiliate cookie exists (affid is valid and affiliate is active):
+      * Searches for an existing referral by customer_email + affiliate
+      * If found and not yet "Paying Customer": updates status and awards
+        signup commission
+      * If not found: creates a new referral with "Paying Customer" status
+        and awards signup commission
+      * Updates the affiliate's totalConversions, totalEarnings, and
+        approvedBalance
+
+COMMISSION AMOUNTS:
+  Signup commission (one-time):
+    - Standard affiliate:  $100
+    - Premium affiliate:   $150
+    - Custom affiliate:    as configured per affiliate
+
+  Monthly recurring commission (tracked when status is updated):
+    - Enterprise plan:     $100/month (up to 12 months)
+    - Professional plan:   $50/month (up to 12 months)
+    - Basic plan:          $10/month (up to 12 months)
+
+IMPORTANT: The purchase tracking call should be made from the CLIENT SIDE
+after payment confirmation (e.g., in the Stripe checkout success callback)
+because it needs access to the affiliate cookies. If you process payments
+server-side only, see the "Server-Side Purchase Tracking" section below.
+
+
+---------------------------------------------------------------
+  STEP 6: TRACK FUNNEL STEPS (OPTIONAL)
+---------------------------------------------------------------
+
+You can track custom funnel milestones at any point in the customer
+journey. This helps visualize the conversion funnel in the dashboard.
+
+  MassaProAffiliate.trackFunnelStep('view_pricing');
+  MassaProAffiliate.trackFunnelStep('view_demo');
+  MassaProAffiliate.trackFunnelStep('checkout_start');
+  MassaProAffiliate.trackFunnelStep('payment_info_entered');
+
+WHAT THIS DOES:
+  - Saves the step name in the funnel cookie (massapro_funnel)
+  - Fires an event pixel: funnel_view_pricing
+  - Fires a click tracking event with event_type='funnel_step'
+
+FUNNEL STEPS ARE ACCUMULATIVE:
+  Each unique step name is added only once to the funnel cookie. If the
+  same step is tracked multiple times, duplicates are ignored. The current
+  funnel progress can be retrieved at any time:
+
+  var progress = MassaProAffiliate.getFunnelProgress();
+  // Returns: { steps: ["landing", "view_pricing", "add_to_cart", ...] }
+
+AUTOMATIC FUNNEL STEPS:
+  The tracker automatically records these steps:
+    - "landing"        — When visitor first arrives with ?affid=
+    - "lead_form"      — When trackLead() is called
+    - "add_to_cart"    — When trackCart() is called
+    - "purchase"       — When trackPurchase() is called
+
+
+---------------------------------------------------------------
+  STEP 7: UPDATE LEAD STATUS (SERVER-TO-SERVER)
+---------------------------------------------------------------
+
+When a lead's status changes (e.g., from "Lead" to "Booked Call" to
+"Paying Customer"), call the /api/track/status endpoint from your server
+or from the admin dashboard.
+
+  PUT https://aff-massapro.space-z.ai/api/track/status
+  Content-Type: application/json
+
+  {
+    "affid": "massa001",
+    "referral_id": "cl_xxx",          // OR use lead_email + affid
+    "lead_email": "john@company.com",
+    "new_status": "Paying Customer",
+    "plan_type": "Professional",
+    "months_active": 1
+  }
+
+VALID STATUS VALUES:
+  - "Lead"
+  - "Booked Call"
+  - "Paying Customer"
+  - "Churned"
+
+LEGACY STATUS MAPPING (automatically converted):
+  - "Call Booked"       → "Booked Call"
+  - "Active Subscriber" → "Paying Customer"
+
+COMMISSION TRIGGERS ON STATUS UPDATE:
+  - Transitioning to "Paying Customer" from any non-paying status:
+    Awards the signup commission ($100/$150/custom) immediately.
+  - Incrementing months_active for a "Paying Customer":
+    Awards a recurring commission for each additional month
+    (up to 12 months total).
+
+
+---------------------------------------------------------------
+  STEP 8: INTEGRATE WITH META (FACEBOOK) PIXEL
+---------------------------------------------------------------
+
+If you fire Meta fbq('track', 'Purchase', ...) events on your site, you
+can also fire the MassaPro affiliate purchase tracking alongside it.
+These are independent tracking systems — both should fire.
+
+Example (fire both on purchase confirmation):
+
+  // Meta Pixel (for ad optimization)
+  fbq('track', 'Purchase', {
+    value: 99,
+    currency: 'USD',
+    content_name: 'Professional Plan'
+  });
+
+  // MassaPro Affiliate (for commission tracking)
+  MassaProAffiliate.trackPurchase({
+    order_id: 'ORD-12345',
+    revenue: 99,
+    currency: 'USD',
+    plan_type: 'Professional',
+    customer_email: orderEmail,
+    customer_name: orderName
+  });
+
+Both calls should be made in the same success handler. The Meta pixel
+does NOT communicate with the MassaPro affiliate system — they are
+completely separate tracking mechanisms.
+
+
+================================================================================
+  SERVER-SIDE PURCHASE TRACKING (ADVANCED)
+================================================================================
+
+If you process payments entirely server-side (e.g., Stripe webhooks) and
+cannot rely on client-side cookies, you can call the purchase endpoint
+directly from your server:
+
+  POST https://aff-massapro.space-z.ai/api/track/purchase
+  Content-Type: application/json
+
+  {
+    "affid": "massa001",
+    "event_type": "purchase",
+    "order_id": "ORD-12345",
+    "revenue": 99,
+    "currency": "USD",
+    "plan_type": "Professional",
+    "customer_email": "john@company.com",
+    "customer_name": "John Smith",
+    "session_id": "sess_xxx",
+    "ft_utm_source": "google",
+    "ft_utm_medium": "cpc",
+    "ft_utm_campaign": "spring_sale",
+    "lt_utm_source": "facebook",
+    "lt_utm_medium": "social",
+    "lt_utm_campaign": "retarget",
+    "page_url": "https://receptionist.massapro.com/checkout",
+    "funnel_steps": ["landing", "view_pricing", "add_to_cart", "purchase"]
+  }
+
+For server-side calls, you must pass the affid and UTM parameters
+explicitly (since server-side code does not have access to the browser
+cookies). You could store the attribution data in your checkout session
+or pass it as hidden form fields during the checkout flow.
+
+
+================================================================================
+  COMPLETE API REFERENCE
+================================================================================
+
++---------------------+--------+-------------------------------------------+
+| Endpoint            | Method | Purpose                                   |
++---------------------+--------+-------------------------------------------+
+| /api/track/click    | GET    | Pixel-based click tracking (returns GIF)  |
+| /api/track/click    | POST   | JSON click tracking with full attribution |
+| /api/track/lead     | POST   | Lead/referral submission                  |
+| /api/track/event    | GET    | Pixel-based event tracking (returns GIF)  |
+| /api/track/event    | POST   | JSON event tracking                       |
+| /api/track/purchase | POST   | Cart, purchase, and funnel step tracking  |
+| /api/track/status   | PUT    | Update lead/referral status               |
++---------------------+--------+-------------------------------------------+
+
+All endpoints support CORS (Access-Control-Allow-Origin: *).
+All tracking endpoints are public (no API key required).
+
+
+--- /api/track/click (GET — Pixel) ---
+  Query params:
+    affid        (required) — Affiliate ID
+    utm_source   (optional) — Last-touch UTM source
+    utm_medium   (optional) — Last-touch UTM medium
+    utm_campaign (optional) — Last-touch UTM campaign
+    utm_content  (optional) — Last-touch UTM content
+    utm_term     (optional) — Last-touch UTM term
+    page_url     (optional) — Page URL where click occurred
+    event_type   (optional) — "pageview" or "button_click" (default: pageview)
+    event_id     (optional) — Event identifier (e.g., "btn_hero_demo")
+    session_id   (optional) — Session identifier
+  Returns: 1x1 transparent GIF (image/gif)
+
+
+--- /api/track/click (POST — JSON) ---
+  Body (JSON):
+    affid        (required) — Affiliate ID
+    utm_source   (optional) — Last-touch UTM source
+    utm_medium   (optional) — Last-touch UTM medium
+    utm_campaign (optional) — Last-touch UTM campaign
+    utm_content  (optional) — Last-touch UTM content
+    utm_term     (optional) — Last-touch UTM term
+    page_url     (optional) — Page URL
+    event_type   (optional) — "pageview" or "button_click"
+    event_id     (optional) — Event identifier
+    session_id   (optional) — Session identifier
+    ip_address   (optional) — IP address (auto-detected if not provided)
+    user_agent   (optional) — User agent (auto-detected if not provided)
+  Returns: { success: true, clickId: "..." }
+
+
+--- /api/track/lead (POST) ---
+  Body (JSON):
+    affid           (required) — Affiliate ID
+    lead_name       (required) — Lead's full name
+    lead_email      (optional) — Lead's email
+    lead_phone      (optional) — Lead's phone
+    lead_company    (optional) — Lead's company
+    plan_type       (optional) — "Basic", "Professional", "Enterprise"
+    initial_status  (optional) — "Lead", "Booked Call", "Paying Customer"
+    ft_utm_source   (auto)     — First-touch UTM (from tracker cookies)
+    ft_utm_medium   (auto)
+    ft_utm_campaign (auto)
+    ft_utm_content  (auto)
+    ft_utm_term     (auto)
+    lt_utm_source   (auto)     — Last-touch UTM (from tracker cookies)
+    lt_utm_medium   (auto)
+    lt_utm_campaign (auto)
+    lt_utm_content  (auto)
+    lt_utm_term     (auto)
+  Returns: { success: true, referral: { id, leadStatus, ... } }
+
+
+--- /api/track/event (GET — Pixel) ---
+  Query params:
+    event / eventName (required) — Event name (e.g., "btn_buy_basic")
+    affid            (optional)  — Affiliate ID
+    utm_campaign     (optional)  — UTM campaign
+    page_url         (optional)  — Page URL
+  Returns: 1x1 transparent GIF (image/gif)
+
+
+--- /api/track/event (POST — JSON) ---
+  Body (JSON):
+    eventName / event_name (required) — Event name
+    affid                 (optional)  — Affiliate ID
+    utm_campaign          (optional)  — UTM campaign
+    page_url              (optional)  — Page URL
+    session_id            (optional)  — Session ID
+    event_type            (optional)  — Event type label
+    event_label           (optional)  — Event label
+  Returns: { success: true, eventId: "..." }
+
+
+--- /api/track/purchase (POST) ---
+  Body (JSON):
+    affid           (optional)  — Affiliate ID (if known)
+    event_type      (required)  — "add_to_cart", "purchase", or "funnel_step"
+    order_id        (optional)  — Order ID (for purchases)
+    revenue         (optional)  — Payment amount (for purchases)
+    currency        (optional)  — "USD" (default)
+    plan_type       (optional)  — "Basic", "Professional", "Enterprise"
+    quantity        (optional)  — Quantity (default: 1)
+    cart_value      (optional)  — Cart value (for add_to_cart)
+    customer_email  (optional)  — Customer email (for purchase matching)
+    customer_name   (optional)  — Customer name
+    session_id      (optional)  — Session ID
+    ft_utm_source   (optional)  — First-touch UTM source
+    ft_utm_medium   (optional)  — First-touch UTM medium
+    ft_utm_campaign (optional)  — First-touch UTM campaign
+    ft_utm_content  (optional)  — First-touch UTM content
+    ft_utm_term     (optional)  — First-touch UTM term
+    lt_utm_source   (optional)  — Last-touch UTM source
+    lt_utm_medium   (optional)  — Last-touch UTM medium
+    lt_utm_campaign (optional)  — Last-touch UTM campaign
+    lt_utm_content  (optional)  — Last-touch UTM content
+    lt_utm_term     (optional)  — Last-touch UTM term
+    page_url        (optional)  — Page URL
+    funnel_steps    (optional)  — Array of funnel step names
+  Returns: { success: true, event: { id, eventType, affid, revenue, ... } }
+
+
+--- /api/track/status (PUT) ---
+  Body (JSON):
+    affid          (required)         — Affiliate ID
+    referral_id    (conditional)      — Referral ID (if known)
+    lead_email     (conditional)      — Lead email (if no referral_id)
+    new_status     (required)         — "Lead", "Booked Call",
+                                       "Paying Customer", "Churned"
+    plan_type      (optional)         — "Basic", "Professional", "Enterprise"
+    months_active  (optional)         — Number of active months (for recurring)
+  Returns: { success: true, referral: { id, leadStatus, ... } }
+
+
+================================================================================
+  DATA FLOW DIAGRAM
+================================================================================
+
+  Visitor arrives with ?affid=massa001&utm_source=google&utm_campaign=spring
+    |
+    v
+  [Tracker JS v3.0] — auto-runs on page load
+    |
+    +--> Saves cookies: massapro_affiliate (30d), massapro_ft (30d),
+    |                     massapro_session (1d), massapro_funnel (30d)
+    |
+    +--> Fires GET /api/track/click?affid=massa001&utm_source=google...
+    |    (recorded in Click table, affiliate.totalTraffic incremented)
+    |
+    v
+  Visitor clicks "Get Professional Plan" button
+    |
+    v
+  [onclick] MassaProAffiliate.trackEvent('btn_buy_professional')
+    |
+    +--> Fires GET /api/track/event?event=btn_buy_professional&affid=massa001
+    |    (recorded in AffiliateEvent table)
+    |
+    +--> Fires POST /api/track/click with event_type='button_click'
+    |    (recorded in Click table)
+    |
+    v
+  Visitor adds plan to cart
+    |
+    v
+  [JS callback] MassaProAffiliate.trackCart({ plan_type: 'Professional', cart_value: 99 })
+    |
+    +--> Saves "add_to_cart" in funnel cookie
+    |
+    +--> Fires event pixel: add_to_cart_Professional
+    |
+    +--> Fires POST /api/track/purchase with event_type: 'add_to_cart'
+    |    (recorded in PurchaseEvent table, no commission)
+    |
+    v
+  Payment confirmed
+    |
+    v
+  [JS callback] MassaProAffiliate.trackPurchase({ order_id: 'ORD-123', revenue: 99, plan_type: 'Professional', customer_email: 'john@co.com' })
+    |
+    +--> Saves "purchase" in funnel cookie
+    |
+    +--> Fires event pixel: purchase_Professional
+    |
+    +--> Fires POST /api/track/purchase with event_type: 'purchase'
+    |    (recorded in PurchaseEvent table)
+    |
+    +--> Commission engine runs:
+         - Finds/creates Referral with status "Paying Customer"
+         - Creates CommissionLedger entry ($100 signup commission)
+         - Updates affiliate.totalConversions, totalEarnings, approvedBalance
+    |
+    v
+  [Dashboard] Affiliate sees conversion, commission, and earnings updated
+
+
+================================================================================
+  HOW UTM ATTRIBUTION WORKS
+================================================================================
+
+The MassaPro affiliate tracker uses a DUAL-TOUCH attribution model:
+
+FIRST-TOUCH (massapro_ft cookie):
+  - Captured ONCE when the visitor first arrives with ?affid=XXX
+  - Never overwritten, even if the visitor returns via a different UTM source
+  - Stored in the Referral and PurchaseEvent records as ft_utm_*
+  - Used to answer: "Which campaign originally brought this customer?"
+
+LAST-TOUCH (massapro_affiliate cookie):
+  - Updated every time the visitor arrives with new UTM parameters
+  - Stored in the Click records and in Referral/PurchaseEvent as lt_utm_*
+  - Used to answer: "Which campaign drove the most recent conversion?"
+
+EXAMPLE:
+  Day 1:  Visitor clicks Google ad → ?affid=massa001&utm_source=google&utm_campaign=spring_sale
+          First-touch: google / spring_sale
+          Last-touch:  google / spring_sale
+
+  Day 15: Visitor clicks Facebook retargeting ad → ?affid=massa001&utm_source=facebook&utm_campaign=retarget
+          First-touch: google / spring_sale  (UNCHANGED)
+          Last-touch:  facebook / retarget    (UPDATED)
+
+  Day 20: Visitor makes a purchase
+          PurchaseEvent records:
+            ft_utm_source:   google
+            ft_utm_campaign: spring_sale
+            lt_utm_source:   facebook
+            lt_utm_campaign: retarget
+
+
+================================================================================
+  COMMISSION ENGINE DETAILS
+================================================================================
+
+SIGNUP COMMISSION (one-time):
+  Triggered when a referral status becomes "Paying Customer", either:
+    - Via trackLead() with initial_status: 'Paying Customer'
+    - Via trackPurchase() with a valid affid and customer_email
+    - Via PUT /api/track/status with new_status: 'Paying Customer'
+
+  Amounts:
+    Standard affiliate:  $100
+    Premium affiliate:   $150
+    Custom affiliate:    Per-affiliate override (customSignupComm field)
+
+RECURRING COMMISSION (monthly, up to 12 months):
+  Triggered when months_active is incremented for a "Paying Customer"
+  via PUT /api/track/status.
+
+  Amounts per plan:
+    Enterprise:     $100/month
+    Professional:   $50/month
+    Basic:          $10/month
+
+  Custom affiliates may have different rates configured via:
+    customEnterprise, customProfess, customBasic fields
+
+COMMISSION LEDGER:
+  Every commission is recorded in the CommissionLedger table with:
+    - type: "signup", "recurring", or "adjustment"
+    - amount: dollar amount
+    - description: human-readable note
+    - monthNumber: (for recurring) which month 1-12
+    - referralId: link to the Referral record
+
+AFFILIATE BALANCE TRACKING:
+  - totalEarnings: sum of all commissions ever earned
+  - approvedBalance: commissions available for payout
+  - paidBalance: total commissions already paid out
+
+
+================================================================================
+  TESTING YOUR INTEGRATION
+================================================================================
+
+1. TEST CLICK TRACKING:
+   Visit your site with an affiliate link:
+     https://receptionist.massapro.com/?affid=massa001&utm_source=test
+
+   Check browser console for:
+     [MassaPro] Click tracked successfully
+
+   Verify in the dashboard:
+     - Admin panel → Clicks tab should show the new click
+     - Affiliate portal should show updated traffic count
+
+2. TEST BUTTON EVENT TRACKING:
+   Click any CTA button with trackEvent() attached.
+   Check browser console for network requests to /api/track/event and
+   /api/track/click.
+
+3. TEST LEAD TRACKING:
+   Submit a lead form on your site.
+   Check browser console for:
+     [MassaPro] Lead tracked: { success: true, ... }
+
+4. TEST CART TRACKING:
+   Add a plan to cart.
+   Check browser console for:
+     [MassaPro] Cart event tracked: { success: true, ... }
+
+5. TEST PURCHASE TRACKING:
+   Complete a test purchase.
+   Check browser console for:
+     [MassaPro] Purchase tracked: { success: true, ... }
+   Verify in the dashboard:
+     - Admin panel → Referrals should show the new "Paying Customer"
+     - Commission ledger should show the signup commission
+     - Affiliate earnings should be updated
+
+6. VERIFY COOKIES:
+   Open browser DevTools → Application → Cookies:
+     - massapro_affiliate should contain the affid and UTM data
+     - massapro_ft should contain first-touch UTM data
+     - massapro_session should contain a session ID
+     - massapro_funnel should contain funnel step progress
+
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+PROBLEM: trackEvent() calls seem to do nothing
+  CAUSE:  The tracker script was not loaded or config() was not called.
+  FIX:    Make sure both <script> tags are present and the dashboardUrl
+          is set to 'https://aff-massapro.space-z.ai'.
+
+PROBLEM: No affiliate data is being tracked
+  CAUSE:  Visitor did not arrive via an ?affid= link, so no cookie was set.
+  FIX:    Always test with an affiliate link that includes ?affid=XXX.
+
+PROBLEM: Leads are not being attributed to affiliates
+  CAUSE:  The affiliate cookie expired (30-day window) or was never set.
+  FIX:    Ensure visitors arrive via affiliate links. Check that the
+          massapro_affiliate cookie exists in DevTools.
+
+PROBLEM: Purchase events don't create commissions
+  CAUSE:  (a) No affiliate cookie exists at time of purchase
+          (b) The affid is invalid or the affiliate is not active
+          (c) customer_email was not provided (needed for referral matching)
+  FIX:    Ensure the visitor has the affiliate cookie, the affid is valid,
+          and customer_email is included in the trackPurchase() call.
+
+PROBLEM: Console shows 404 for /api/track/event
+  CAUSE:  This was a bug in earlier deployments — the endpoint was missing.
+  FIX:    This has been fixed. The endpoint now exists. If you still see
+          404s, clear your browser cache and reload the page.
+
+PROBLEM: Old tracker JS is being served (cache issue)
+  CAUSE:  Browser or CDN is caching the old version of the tracker JS.
+  FIX:    Hard-refresh the page (Ctrl+Shift+R) or add a cache-buster:
+          src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js?v=3"
+
+
+================================================================================
+  MINIMUM CODE FOR COMPLETE INTEGRATION
+================================================================================
+
+Below is the MINIMUM code you need to add to receptionist.massapro.com
+for full affiliate tracking (clicks, buttons, leads, cart, purchases):
+
+<!-- Step 1: Load the tracker (add to every page, before </body>) -->
+<script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
+<script>
+  MassaProAffiliate.config({
+    dashboardUrl: 'https://aff-massapro.space-z.ai'
+  });
+</script>
+
+<!-- Step 2: Add onclick to CTA buttons -->
+<button onclick="MassaProAffiliate.trackEvent('btn_buy_basic')">
+  Get Basic Plan
+</button>
+<button onclick="MassaProAffiliate.trackEvent('btn_buy_professional')">
+  Get Professional Plan
+</button>
+<button onclick="MassaProAffiliate.trackEvent('btn_buy_enterprise')">
+  Get Enterprise Plan
+</button>
+<button onclick="MassaProAffiliate.trackEvent('btn_get_now')">
+  Get Started Now
+</button>
+
+<!-- Step 3: On lead form submission (in your form handler JS) -->
+<script>
+  function onLeadFormSubmit(formData) {
+    MassaProAffiliate.trackLead({
+      lead_name: formData.name,
+      lead_email: formData.email,
+      lead_phone: formData.phone,
+      lead_company: formData.company,
+      plan_type: formData.plan_type || 'Basic',
+      initial_status: 'Lead'
+    });
+  }
+</script>
+
+<!-- Step 4: On add-to-cart (in your cart JS) -->
+<script>
+  function onAddToCart(planType, value) {
+    MassaProAffiliate.trackCart({
+      plan_type: planType,
+      quantity: 1,
+      cart_value: value
+    });
+  }
+</script>
+
+<!-- Step 5: On purchase confirmation (in your payment success handler) -->
+<script>
+  function onPaymentConfirmed(orderId, revenue, planType, email, name) {
+    MassaProAffiliate.trackPurchase({
+      order_id: orderId,
+      revenue: revenue,
+      currency: 'USD',
+      plan_type: planType,
+      customer_email: email,
+      customer_name: name
+    });
+  }
+</script>
+
+
+================================================================================
+  END OF INSTRUCTIONS
+================================================================================

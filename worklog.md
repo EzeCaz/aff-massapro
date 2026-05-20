@@ -75,3 +75,29 @@ Stage Summary:
 - Purchase events auto-trigger commission calculations
 - Funnel steps tracked in cookie and stored as JSON in PurchaseEvent.funnelSteps
 - Server running on port 3000, all endpoints verified working
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix missing /api/track/event endpoint and write complete integration instructions TXT
+
+Work Log:
+- Discovered that /api/track/event route was MISSING from the server (directory did not exist)
+- The tracker JS v3.0 fireEventTracking() calls GET /api/track/event?event=... as a pixel — was getting silent 404s
+- Created /api/track/event/route.ts with both GET (pixel, returns 1x1 GIF) and POST (JSON) handlers
+- Event endpoint records events in AffiliateEvent table with eventName, affid, utmCampaign, pageUrl
+- Built and deployed — /api/track/event now appears in the route list
+- Wrote comprehensive integration instructions TXT file answering all 5 user questions:
+  1. Dashboard URL: Use https://aff-massapro.space-z.ai (not the preview URL which is temporary)
+  2. Tracker JS URL: Use https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+  3. trackEvent() IS in the hosted tracker JS v3.0 — was previously missing but now added
+  4. All 4 tracking endpoints now deployed and working (click, lead, event, purchase + status)
+  5. Purchase/cart/funnel events are documented in the full guide
+- File saved to /home/z/my-project/download/Massapro-Affiliate-Integration-Instructions.txt
+
+Stage Summary:
+- Fixed critical bug: /api/track/event endpoint was missing, causing silent 404s for all trackEvent() calls
+- All tracking endpoints now working: click, lead, event, purchase, status
+- Complete integration instructions written as TXT file covering all 8 steps
+- Instructions include: button tracking, lead forms, cart events, purchase events, funnel steps,
+  UTM attribution, commission engine details, API reference, testing guide, troubleshooting
