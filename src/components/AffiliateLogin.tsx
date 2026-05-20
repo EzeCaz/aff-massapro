@@ -1,21 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sparkles, ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
-
-interface AffiliateOption {
-  id: string
-  affid: string
-  name: string
-  email: string
-}
 
 export default function AffiliateLogin() {
   const { setView, setAuthenticatedAffiliateId } = useAppStore()
@@ -23,16 +15,6 @@ export default function AffiliateLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [affiliates, setAffiliates] = useState<AffiliateOption[]>([])
-
-  useEffect(() => {
-    fetch('/api/affiliates')
-      .then(res => res.json())
-      .then(data => {
-        setAffiliates(data.filter((a: AffiliateOption) => a.email))
-      })
-      .catch(() => {})
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,11 +47,6 @@ export default function AffiliateLogin() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleDemoLogin = (affiliateId: string) => {
-    setAuthenticatedAffiliateId(affiliateId)
-    setView('affiliate')
   }
 
   return (
@@ -160,23 +137,6 @@ export default function AffiliateLogin() {
                   )}
                 </Button>
               </form>
-
-              {/* Demo Login */}
-              <div className="mt-6 pt-6 border-t border-purple-100">
-                <div className="text-center text-sm text-gray-500 mb-3">Demo Mode</div>
-                <Select onValueChange={handleDemoLogin}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a demo affiliate..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {affiliates.filter(a => a.affid !== 'MP-LISA-005').map(a => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name} ({a.affid})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="mt-4 text-center text-sm text-gray-500">
                 Don&apos;t have an account?{' '}

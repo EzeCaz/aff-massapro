@@ -62,12 +62,6 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!affid) {
-      return NextResponse.json(
-        { error: 'affid is required' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
     if (!lead_name) {
       return NextResponse.json(
         { error: 'lead_name is required' },
@@ -75,19 +69,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate affiliate exists and is active
-    const affiliate = await db.affiliate.findUnique({ where: { affid } })
+    // Default to no_affiliate if no affid provided
+    const effectiveAffid = affid || 'no_affiliate'
+    const isDirectTraffic = effectiveAffid === 'no_affiliate'
+
+    // Look up affiliate — if not found, fall back to no_affiliate
+    let affiliate = await db.affiliate.findUnique({ where: { affid: effectiveAffid } })
     if (!affiliate) {
-      return NextResponse.json(
-        { error: 'Affiliate not found' },
-        { status: 404, headers: corsHeaders }
-      )
+      affiliate = await db.affiliate.findUnique({ where: { affid: 'no_affiliate' } })
     }
-    if (!affiliate.isActive) {
-      return NextResponse.json(
-        { error: 'Affiliate is not active' },
-        { status: 404, headers: corsHeaders }
-      )
+    if (!affiliate) {
+      // Create the no_affiliate account if it doesn't exist
+      affiliate = await db.affiliate.create({
+        data: {
+          affid: 'no_affiliate',
+          name: 'No Affiliate (Direct Traffic)',
+          email: 'no-affiliate@massapro.system',
+          isActive: true,
+          isApproved: true,
+          commissionType: 'standard',
+        },
+      })
     }
 
     // Determine lead status (default to "Lead")
@@ -112,16 +114,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate commissions based on affiliate's commission structure
-    const monthlyCommission = getMonthlyComm(affiliate, planType)
+    // Calculate commissions — NO commissions for direct (no_affiliate) traffic
+    const monthlyCommission = isDirectTraffic ? 0 : getMonthlyComm(affiliate, planType)
     const isPayingCustomer = leadStatus === 'Paying Customer'
-    const signupCommission = isPayingCustomer ? getSignupComm(affiliate) : 0
+    const signupCommission = (!isDirectTraffic && isPayingCustomer) ? getSignupComm(affiliate) : 0
 
     // Create referral record
     const referral = await db.referral.create({
       data: {
         affiliateId: affiliate.id,
-        affid,
+        affid: effectiveAffid,
         leadName: lead_name,
         leadEmail: lead_email || null,
         leadPhone: lead_phone || null,

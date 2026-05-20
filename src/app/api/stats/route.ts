@@ -161,10 +161,13 @@ async function getAdminStats() {
       where: { createdAt: { gte: thirtyDaysAgo } },
     })
 
-    // Count unique sessions - approximate by counting clicks with distinct IPs
-    const uniqueVisitorCount = await db.click.count({
-      where: { createdAt: { gte: thirtyDaysAgo } },
+    // Count unique visitors by distinct session IDs
+    const uniqueSessions = await db.click.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo }, sessionId: { not: null } },
+      select: { sessionId: true },
+      distinct: ['sessionId'],
     })
+    const uniqueVisitorCount = uniqueSessions.length
 
     const totalReferrals = await db.referral.count({
       where: { createdAt: { gte: thirtyDaysAgo } },
@@ -224,7 +227,7 @@ async function getAdminStats() {
 
     return NextResponse.json({
       totalTraffic,
-      uniqueVisitors: Math.round(uniqueVisitorCount * 0.6), // Approximate unique from total
+      uniqueVisitors: uniqueVisitorCount,
       totalReferrals,
       bookedCalls,
       payingCustomers,

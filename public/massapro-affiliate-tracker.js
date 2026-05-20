@@ -1,6 +1,7 @@
 /**
- * MassaPro Affiliate Tracker v3.0
- * Embed this script on receptionist.massapro.com to track affiliate clicks, leads, events, cart, and purchases.
+ * MassaPro Affiliate Tracker v4.0
+ * Captures ALL traffic — with or without an affiliate ID.
+ * Traffic without an affid is attributed to the "no_affiliate" account.
  *
  * Usage:
  *   <script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
@@ -18,6 +19,7 @@
  *   MassaProAffiliate.getAttribution()
  *   MassaProAffiliate.getFirstTouch()
  *   MassaProAffiliate.getSessionId()
+ *   MassaProAffiliate.getFunnelProgress()
  */
 (function (window) {
   'use strict';
@@ -28,6 +30,7 @@
   var FUNNEL_COOKIE = 'massapro_funnel'; // Funnel progress tracking
   var COOKIE_EXPIRY_DAYS = 30;
   var DEFAULT_DASHBOARD_URL = '';
+  var NO_AFFILIATE_ID = 'no_affiliate'; // Fallback for traffic without an affid
 
   var _config = {
     dashboardUrl: DEFAULT_DASHBOARD_URL,
@@ -122,27 +125,46 @@
     }
   }
 
-  // Build attribution payload (affid + UTMs) for any tracking call
+  // Get the effective affid — real affiliate or 'no_affiliate'
+  function getEffectiveAffid() {
+    var affiliateData = getAffiliateData();
+    if (affiliateData && affiliateData.affid) {
+      return affiliateData.affid;
+    }
+    return NO_AFFILIATE_ID;
+  }
+
+  // Check if the visitor has a real affiliate attribution
+  function hasAffiliateAttribution() {
+    var affiliateData = getAffiliateData();
+    return !!(affiliateData && affiliateData.affid && affiliateData.affid !== NO_AFFILIATE_ID);
+  }
+
+  // Build attribution payload (affid + UTMs) — ALWAYS returns data, even for non-affiliate traffic
   function buildAttributionPayload() {
     var affiliateData = getAffiliateData();
     var firstTouch = getFirstTouchData();
-    if (!affiliateData) return null;
+    var effectiveAffid = getEffectiveAffid();
+
+    // Get UTMs from affiliate cookie or from URL params
+    var urlParams = parseUrlParams();
 
     return {
-      affid: affiliateData.affid || '',
+      affid: effectiveAffid,
       session_id: getOrCreateSessionId(),
+      is_direct: !hasAffiliateAttribution(),
       // First-touch UTMs
-      ft_utm_source: firstTouch ? firstTouch.utm_source : (affiliateData.ft_utm_source || ''),
-      ft_utm_medium: firstTouch ? firstTouch.utm_medium : (affiliateData.ft_utm_medium || ''),
-      ft_utm_campaign: firstTouch ? firstTouch.utm_campaign : (affiliateData.ft_utm_campaign || ''),
-      ft_utm_content: firstTouch ? firstTouch.utm_content : (affiliateData.ft_utm_content || ''),
-      ft_utm_term: firstTouch ? firstTouch.utm_term : (affiliateData.ft_utm_term || ''),
+      ft_utm_source: firstTouch ? firstTouch.utm_source : (affiliateData ? affiliateData.ft_utm_source : '') || urlParams.utm_source || '',
+      ft_utm_medium: firstTouch ? firstTouch.utm_medium : (affiliateData ? affiliateData.ft_utm_medium : '') || urlParams.utm_medium || '',
+      ft_utm_campaign: firstTouch ? firstTouch.utm_campaign : (affiliateData ? affiliateData.ft_utm_campaign : '') || urlParams.utm_campaign || '',
+      ft_utm_content: firstTouch ? firstTouch.utm_content : (affiliateData ? affiliateData.ft_utm_content : '') || urlParams.utm_content || '',
+      ft_utm_term: firstTouch ? firstTouch.utm_term : (affiliateData ? affiliateData.ft_utm_term : '') || urlParams.utm_term || '',
       // Last-touch UTMs
-      lt_utm_source: affiliateData.utm_source || '',
-      lt_utm_medium: affiliateData.utm_medium || '',
-      lt_utm_campaign: affiliateData.utm_campaign || '',
-      lt_utm_content: affiliateData.utm_content || '',
-      lt_utm_term: affiliateData.utm_term || '',
+      lt_utm_source: (affiliateData ? affiliateData.utm_source : '') || urlParams.utm_source || '',
+      lt_utm_medium: (affiliateData ? affiliateData.utm_medium : '') || urlParams.utm_medium || '',
+      lt_utm_campaign: (affiliateData ? affiliateData.utm_campaign : '') || urlParams.utm_campaign || '',
+      lt_utm_content: (affiliateData ? affiliateData.utm_content : '') || urlParams.utm_content || '',
+      lt_utm_term: (affiliateData ? affiliateData.utm_term : '') || urlParams.utm_term || '',
       page_url: window.location.href,
     };
   }
@@ -211,11 +233,10 @@
       console.warn('[MassaPro] Dashboard URL not configured.');
       return;
     }
+    var effectiveAffid = getEffectiveAffid();
     var affiliateData = getAffiliateData();
     var pixelUrl = dashboardUrl + '/api/track/event?event=' + encodeURIComponent(eventName);
-    if (affiliateData && affiliateData.affid) {
-      pixelUrl += '&affid=' + encodeURIComponent(affiliateData.affid);
-    }
+    pixelUrl += '&affid=' + encodeURIComponent(effectiveAffid);
     if (affiliateData && affiliateData.utm_campaign) {
       pixelUrl += '&utm_campaign=' + encodeURIComponent(affiliateData.utm_campaign);
     }
@@ -237,16 +258,11 @@
       return Promise.reject(new Error('Dashboard URL not configured'));
     }
 
-    var affiliateData = getAffiliateData();
-    if (!affiliateData || !affiliateData.affid) {
-      console.warn('[MassaPro] No affiliate attribution found. Lead will not be tracked.');
-      return Promise.reject(new Error('No affiliate attribution found'));
-    }
-
     var attribution = buildAttributionPayload();
 
     var payload = {
       affid: attribution.affid,
+      is_direct: attribution.is_direct,
       lead_name: data.lead_name || '',
       lead_email: data.lead_email || '',
       lead_phone: data.lead_phone || '',
@@ -294,14 +310,14 @@
       return Promise.reject(new Error('Dashboard URL not configured'));
     }
 
-    var affiliateData = getAffiliateData();
     var attribution = buildAttributionPayload();
 
     // Save funnel step
     saveFunnelStep('add_to_cart');
 
     var payload = {
-      affid: attribution ? attribution.affid : '',
+      affid: attribution.affid,
+      is_direct: attribution.is_direct,
       session_id: getOrCreateSessionId(),
       event_type: 'add_to_cart',
       plan_type: data.plan_type || 'Basic',
@@ -309,12 +325,16 @@
       cart_value: data.cart_value || 0,
       currency: data.currency || 'USD',
       // UTMs (first-touch + last-touch)
-      ft_utm_source: attribution ? attribution.ft_utm_source : '',
-      ft_utm_medium: attribution ? attribution.ft_utm_medium : '',
-      ft_utm_campaign: attribution ? attribution.ft_utm_campaign : '',
-      lt_utm_source: attribution ? attribution.lt_utm_source : '',
-      lt_utm_medium: attribution ? attribution.lt_utm_medium : '',
-      lt_utm_campaign: attribution ? attribution.lt_utm_campaign : '',
+      ft_utm_source: attribution.ft_utm_source,
+      ft_utm_medium: attribution.ft_utm_medium,
+      ft_utm_campaign: attribution.ft_utm_campaign,
+      ft_utm_content: attribution.ft_utm_content,
+      ft_utm_term: attribution.ft_utm_term,
+      lt_utm_source: attribution.lt_utm_source,
+      lt_utm_medium: attribution.lt_utm_medium,
+      lt_utm_campaign: attribution.lt_utm_campaign,
+      lt_utm_content: attribution.lt_utm_content,
+      lt_utm_term: attribution.lt_utm_term,
       page_url: window.location.href,
       funnel_steps: getFunnelData().steps,
     };
@@ -351,14 +371,14 @@
       return Promise.reject(new Error('Dashboard URL not configured'));
     }
 
-    var affiliateData = getAffiliateData();
     var attribution = buildAttributionPayload();
 
     // Save funnel step
     saveFunnelStep('purchase');
 
     var payload = {
-      affid: attribution ? attribution.affid : '',
+      affid: attribution.affid,
+      is_direct: attribution.is_direct,
       session_id: getOrCreateSessionId(),
       event_type: 'purchase',
       order_id: data.order_id || '',
@@ -368,16 +388,16 @@
       customer_email: data.customer_email || '',
       customer_name: data.customer_name || '',
       // UTMs (first-touch + last-touch)
-      ft_utm_source: attribution ? attribution.ft_utm_source : '',
-      ft_utm_medium: attribution ? attribution.ft_utm_medium : '',
-      ft_utm_campaign: attribution ? attribution.ft_utm_campaign : '',
-      ft_utm_content: attribution ? attribution.ft_utm_content : '',
-      ft_utm_term: attribution ? attribution.ft_utm_term : '',
-      lt_utm_source: attribution ? attribution.lt_utm_source : '',
-      lt_utm_medium: attribution ? attribution.lt_utm_medium : '',
-      lt_utm_campaign: attribution ? attribution.lt_utm_campaign : '',
-      lt_utm_content: attribution ? attribution.lt_utm_content : '',
-      lt_utm_term: attribution ? attribution.lt_utm_term : '',
+      ft_utm_source: attribution.ft_utm_source,
+      ft_utm_medium: attribution.ft_utm_medium,
+      ft_utm_campaign: attribution.ft_utm_campaign,
+      ft_utm_content: attribution.ft_utm_content,
+      ft_utm_term: attribution.ft_utm_term,
+      lt_utm_source: attribution.lt_utm_source,
+      lt_utm_medium: attribution.lt_utm_medium,
+      lt_utm_campaign: attribution.lt_utm_campaign,
+      lt_utm_content: attribution.lt_utm_content,
+      lt_utm_term: attribution.lt_utm_term,
       page_url: window.location.href,
       funnel_steps: getFunnelData().steps,
     };
@@ -420,17 +440,16 @@
     // Fire event pixel
     fireEventTracking('funnel_' + stepName);
 
-    // Also fire click tracking with funnel event type
+    // Also fire click tracking with funnel event type — ALWAYS, using effective affid
+    var effectiveAffid = getEffectiveAffid();
     var affiliateData = getAffiliateData();
-    if (affiliateData && affiliateData.affid) {
-      fireClickTracking(affiliateData.affid, {
-        utm_source: affiliateData.utm_source,
-        utm_medium: affiliateData.utm_medium,
-        utm_campaign: affiliateData.utm_campaign,
-        utm_content: affiliateData.utm_content,
-        utm_term: affiliateData.utm_term,
-      }, 'funnel_step', 'funnel_' + stepName);
-    }
+    fireClickTracking(effectiveAffid, {
+      utm_source: (affiliateData ? affiliateData.utm_source : '') || '',
+      utm_medium: (affiliateData ? affiliateData.utm_medium : '') || '',
+      utm_campaign: (affiliateData ? affiliateData.utm_campaign : '') || '',
+      utm_content: (affiliateData ? affiliateData.utm_content : '') || '',
+      utm_term: (affiliateData ? affiliateData.utm_term : '') || '',
+    }, 'funnel_step', 'funnel_' + stepName);
 
     console.log('[MassaPro] Funnel step tracked: ' + stepName + ' | Progress: ' + JSON.stringify(getFunnelData().steps));
   }
@@ -442,6 +461,7 @@
     var affid = urlParams.affid;
 
     if (affid) {
+      // Visitor arrived via an affiliate link
       var utmData = {
         affid: affid,
         utm_source: urlParams.utm_source || '',
@@ -476,7 +496,9 @@
       }
     } else {
       var existingData = getAffiliateData();
-      if (existingData) {
+
+      if (existingData && existingData.affid) {
+        // Returning visitor with existing affiliate cookie
         var updated = false;
         if (urlParams.utm_source) { existingData.utm_source = urlParams.utm_source; updated = true; }
         if (urlParams.utm_medium) { existingData.utm_medium = urlParams.utm_medium; updated = true; }
@@ -495,6 +517,35 @@
             utm_term: existingData.utm_term,
           });
         }
+      } else {
+        // NO affiliate attribution — direct traffic
+        // Still capture UTM params and track the pageview as 'no_affiliate'
+        var directUtmData = {
+          affid: NO_AFFILIATE_ID,
+          utm_source: urlParams.utm_source || '',
+          utm_medium: urlParams.utm_medium || '',
+          utm_campaign: urlParams.utm_campaign || '',
+          utm_content: urlParams.utm_content || '',
+          utm_term: urlParams.utm_term || '',
+          landing_page: window.location.href,
+          timestamp: new Date().toISOString(),
+          is_direct: true,
+        };
+
+        // Save first-touch for direct traffic too
+        saveFirstTouchData(directUtmData);
+        saveAffiliateData(directUtmData);
+        saveFunnelStep('landing');
+
+        if (_config.dashboardUrl) {
+          fireClickTracking(NO_AFFILIATE_ID, {
+            utm_source: urlParams.utm_source,
+            utm_medium: urlParams.utm_medium,
+            utm_campaign: urlParams.utm_campaign,
+            utm_content: urlParams.utm_content,
+            utm_term: urlParams.utm_term,
+          });
+        }
       }
     }
   }
@@ -510,28 +561,28 @@
 
     /**
      * Track a CTA button click event.
-     * @param {string} eventId - e.g. "btn_hero_demo", "btn_pricing_tier"
+     * @param {string} eventId - e.g. "btn_hero_demo", "btn_buy_basic"
      */
     trackEvent: function (eventId) {
+      var effectiveAffid = getEffectiveAffid();
       var affiliateData = getAffiliateData();
 
-      // Fire dedicated event pixel
+      // Fire dedicated event pixel — ALWAYS
       fireEventTracking(eventId);
 
-      // Fire click tracking with button_click event type (requires attribution)
-      if (affiliateData && affiliateData.affid) {
-        fireClickTracking(affiliateData.affid, {
-          utm_source: affiliateData.utm_source,
-          utm_medium: affiliateData.utm_medium,
-          utm_campaign: affiliateData.utm_campaign,
-          utm_content: affiliateData.utm_content,
-          utm_term: affiliateData.utm_term,
-        }, 'button_click', eventId);
-      }
+      // Fire click tracking with button_click event type — ALWAYS
+      fireClickTracking(effectiveAffid, {
+        utm_source: (affiliateData ? affiliateData.utm_source : '') || '',
+        utm_medium: (affiliateData ? affiliateData.utm_medium : '') || '',
+        utm_campaign: (affiliateData ? affiliateData.utm_campaign : '') || '',
+        utm_content: (affiliateData ? affiliateData.utm_content : '') || '',
+        utm_term: (affiliateData ? affiliateData.utm_term : '') || '',
+      }, 'button_click', eventId);
     },
 
     /**
      * Track a lead form submission.
+     * Now also works for direct traffic (attributed to 'no_affiliate').
      * @param {Object} data - { lead_name, lead_email, lead_phone, lead_company, plan_type, initial_status }
      * @returns {Promise}
      */
@@ -585,6 +636,14 @@
 
     getSessionId: function () {
       return getOrCreateSessionId();
+    },
+
+    /**
+     * Check if the current visitor has a real affiliate attribution.
+     * @returns {boolean}
+     */
+    hasAffiliate: function () {
+      return hasAffiliateAttribution();
     },
   };
 

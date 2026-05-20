@@ -18,6 +18,8 @@ const TRANSPARENT_GIF = Buffer.from(
   'base64'
 )
 
+const NO_AFFILIATE_ID = 'no_affiliate'
+
 async function recordClick(params: {
   affid: string
   utm_source?: string | null
@@ -32,18 +34,34 @@ async function recordClick(params: {
   ip_address?: string | null
   user_agent?: string | null
 }) {
-  const { affid, utm_source, utm_medium, utm_campaign, utm_content, utm_term, page_url, event_type, event_id, session_id, ip_address, user_agent } = params
+  let { affid, utm_source, utm_medium, utm_campaign, utm_content, utm_term, page_url, event_type, event_id, session_id, ip_address, user_agent } = params
 
+  // If no affid provided, default to no_affiliate
   if (!affid) {
-    return { error: 'affid is required', status: 400 }
+    affid = NO_AFFILIATE_ID
   }
 
-  const affiliate = await db.affiliate.findUnique({ where: { affid } })
+  // Look up the affiliate
+  let affiliate = await db.affiliate.findUnique({ where: { affid } })
+
+  // If affiliate not found but we have an affid, create a "no_affiliate" fallback
+  // This handles cases where a new affiliate's link is used before they're in the system
   if (!affiliate) {
-    return { error: 'Affiliate not found', status: 404 }
-  }
-  if (!affiliate.isActive) {
-    return { error: 'Affiliate is not active', status: 404 }
+    // Try to use the no_affiliate account for unattributed traffic
+    affiliate = await db.affiliate.findUnique({ where: { affid: NO_AFFILIATE_ID } })
+    if (!affiliate) {
+      // Create the no_affiliate account if it doesn't exist
+      affiliate = await db.affiliate.create({
+        data: {
+          affid: NO_AFFILIATE_ID,
+          name: 'No Affiliate (Direct Traffic)',
+          email: 'no-affiliate@massapro.system',
+          isActive: true,
+          isApproved: true,
+          commissionType: 'standard',
+        },
+      })
+    }
   }
 
   const eventType = event_type || (event_id ? 'button_click' : 'pageview')
@@ -119,7 +137,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const affid = searchParams.get('affid')
 
-    const result = await recordClick({
+    await recordClick({
       affid: affid || undefined,
       utm_source: searchParams.get('utm_source'),
       utm_medium: searchParams.get('utm_medium'),
