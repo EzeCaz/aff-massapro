@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 
 export async function GET(
   _request: NextRequest,
@@ -38,7 +39,7 @@ export async function PUT(
       name, email, phone, company, isActive, isApproved,
       approvedBalance, paidBalance, totalEarnings,
       commissionType, customSignupComm, customEnterprise, customProfess, customBasic,
-      notes,
+      notes, password,
     } = body
 
     const updateData: Record<string, unknown> = {}
@@ -57,6 +58,7 @@ export async function PUT(
     if (customProfess !== undefined) updateData.customProfess = customProfess
     if (customBasic !== undefined) updateData.customBasic = customBasic
     if (notes !== undefined) updateData.notes = notes
+    if (password) updateData.password = await bcrypt.hash(password, 12)
 
     const affiliate = await db.affiliate.update({
       where: { id },

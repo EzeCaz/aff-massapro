@@ -37,17 +37,24 @@ export default function AffiliateLayout() {
     }
     fetch(`/api/affiliates/${authenticatedAffiliateId}`)
       .then(res => {
+        if (res.status === 401 || res.status === 403) {
+          // Session expired or invalid — redirect to login
+          logout()
+          return null
+        }
         if (!res.ok) throw new Error('Not found')
         return res.json()
       })
       .then(data => {
-        setAffiliate(data)
+        if (data) {
+          setAffiliate(data)
+        }
         setLoading(false)
       })
       .catch(() => {
         setView('login')
       })
-  }, [authenticatedAffiliateId, setView])
+  }, [authenticatedAffiliateId, setView, logout])
 
   if (loading || !affiliate) {
     return (

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 
 export async function PUT(
   request: NextRequest,
@@ -41,7 +42,10 @@ export async function PUT(
       const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
       generatedAffid = `MP-${namePart}-${String(nextNum).padStart(3, '0')}`
 
-      // Create affiliate record
+      // Create affiliate record with bcrypt-hashed default password
+      const defaultPassword = 'changeme'
+      const hashedPassword = await bcrypt.hash(defaultPassword, 12)
+
       const affiliate = await db.affiliate.create({
         data: {
           affid: generatedAffid,
@@ -49,6 +53,7 @@ export async function PUT(
           email: application.email,
           phone: application.phone,
           company: application.company,
+          password: hashedPassword,
           isActive: true,
           isApproved: true,
           commissionType: 'standard',

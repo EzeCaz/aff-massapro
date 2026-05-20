@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Loader2, CheckCircle2, XCircle, Clock, Plus } from 'lucide-react'
+import { MoreHorizontal, Loader2, CheckCircle2, XCircle, Clock, Plus, KeyRound } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface Affiliate {
@@ -62,6 +62,10 @@ export default function AffiliateManagementTable() {
   const [customEnterprise, setCustomEnterprise] = useState('')
   const [customProfess, setCustomProfess] = useState('')
   const [customBasic, setCustomBasic] = useState('')
+  const [resetPwdDialogOpen, setResetPwdDialogOpen] = useState(false)
+  const [resetPwdAffiliate, setResetPwdAffiliate] = useState<Affiliate | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [resettingPwd, setResettingPwd] = useState(false)
   const { toast } = useToast()
 
   const fetchData = useCallback(async () => {
@@ -175,6 +179,33 @@ export default function AffiliateManagementTable() {
       }
     } catch {
       toast({ title: 'Error', description: 'Failed to update affiliate', variant: 'destructive' })
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetPwdAffiliate || !newPassword || newPassword.length < 6) {
+      toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' })
+      return
+    }
+    setResettingPwd(true)
+    try {
+      const res = await fetch(`/api/affiliates/${resetPwdAffiliate.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      })
+      if (res.ok) {
+        toast({ title: 'Password Reset', description: `Password updated for ${resetPwdAffiliate.name}` })
+        setResetPwdDialogOpen(false)
+        setNewPassword('')
+        setResetPwdAffiliate(null)
+      } else {
+        toast({ title: 'Error', description: 'Failed to reset password', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to reset password', variant: 'destructive' })
+    } finally {
+      setResettingPwd(false)
     }
   }
 
@@ -338,6 +369,16 @@ export default function AffiliateManagementTable() {
                           <DropdownMenuItem onClick={() => handleToggleActive(aff.id, aff.isActive)}>
                             {aff.isActive ? 'Deactivate' : 'Activate'}
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setResetPwdAffiliate(aff)
+                              setNewPassword('')
+                              setResetPwdDialogOpen(true)
+                            }}
+                          >
+                            <KeyRound className="w-4 h-4 mr-2" />
+                            Reset Password
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -417,6 +458,41 @@ export default function AffiliateManagementTable() {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
               <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSaveCommission}>Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPwdDialogOpen} onOpenChange={setResetPwdDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Affiliate Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for {resetPwdAffiliate?.name} ({resetPwdAffiliate?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Enter new password (min 6 characters)"
+                minLength={6}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResetPwdDialogOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={handleResetPassword}
+                disabled={resettingPwd || newPassword.length < 6}
+              >
+                {resettingPwd ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Reset Password
+              </Button>
             </div>
           </div>
         </DialogContent>

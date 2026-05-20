@@ -101,3 +101,46 @@ Stage Summary:
 - Complete integration instructions written as TXT file covering all 8 steps
 - Instructions include: button tracking, lead forms, cart events, purchase events, funnel steps,
   UTM attribution, commission engine details, API reference, testing guide, troubleshooting
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Implement admin authentication system with JWT sessions, route protection, and role-based access control
+
+Work Log:
+- Created `src/lib/auth.ts` — JWT creation/verification using `jose` library, httpOnly cookie helpers
+  - createToken() — signs JWT with HS256, 24h expiry
+  - verifyToken() — verifies JWT signature and expiration
+  - setAuthCookie() / clearAuthCookies() — manage httpOnly, Secure, SameSite=Lax cookies
+  - Cookie names: `massapro_admin_session`, `massapro_affiliate_session`
+- Updated `src/app/api/auth/admin/login/route.ts` — now sets JWT cookie on successful login
+- Updated `src/app/api/auth/login/route.ts` — now uses bcrypt.compare + auto-upgrades plaintext passwords + sets JWT cookie
+- Created `src/app/api/auth/session/route.ts` — GET endpoint validates cookie and returns user data
+- Created `src/app/api/auth/logout/route.ts` — POST endpoint clears all auth cookies
+- Created `src/middleware.ts` — Next.js middleware protecting API routes:
+  - Public routes: /api/track/*, /api/auth/*, /api/generate-link
+  - Admin-only: /api/admins, /api/commissions, affiliate/application write operations
+  - Other API routes: require any authenticated user (admin or affiliate)
+- Updated `src/lib/store.ts` — Zustand with `persist` middleware for localStorage, logout calls /api/auth/logout
+- Updated `src/app/page.tsx` — Session restore on page load via /api/auth/session, loading screen while verifying
+- Updated `src/app/api/applications/[id]/route.ts` — bcrypt-hashes default password on affiliate creation
+- Updated `src/app/api/affiliates/[id]/route.ts` — Supports password field in PUT (bcrypt-hashed)
+- Updated `src/components/AffiliateManagementTable.tsx` — Added "Reset Password" feature for affiliates
+- Updated `src/components/AffiliateLayout.tsx` — Handles 401/403 responses with session expiry redirect
+- Seeded admin account: eze@massapro.com / MassaEze2289 (super_admin)
+- Migrated existing plaintext affiliate passwords to bcrypt
+- Built and tested successfully:
+  - Admin login ✅ (returns JWT cookie)
+  - Session validation ✅ (cookie → user data)
+  - Middleware protection ✅ (403 on /api/admins without cookie)
+  - Wrong password ✅ (401 response)
+  - Affiliate login with auto-upgrade ✅
+
+Stage Summary:
+- Complete admin authentication system implemented with JWT + httpOnly cookies
+- Session persistence: auth state survives page refresh (Zustand persist + server-side session cookie)
+- API route protection: middleware blocks unauthorized access to admin-only endpoints
+- Affiliate passwords upgraded from plaintext to bcrypt (with auto-migration on login)
+- Admin can reset affiliate passwords from the Affiliate Management table
+- Admin account seeded: eze@massapro.com (super_admin)
+- All existing functionality preserved (tracking endpoints remain public)
