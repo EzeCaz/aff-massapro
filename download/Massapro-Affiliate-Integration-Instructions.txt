@@ -1,134 +1,143 @@
 ================================================================================
   MASSAPRO AFFILIATE DASHBOARD — COMPLETE INTEGRATION INSTRUCTIONS
 ================================================================================
-  Version: 3.1
-  Last Updated: 2026-05-20
-  Dashboard: https://aff-massapro.space-z.ai
-  Website:   https://receptionist.massapro.com
-  Payment:   ClickBank (aireceptio.pay.clickbank.net)
+  Version:        4.0
+  Last Updated:   2026-05-20
+  Dashboard:      https://aff-massapro.space-z.ai
+  Website:        https://receptionist.massapro.com
+  Payment:        ClickBank (aireceptio.pay.clickbank.net)
+
 
 ================================================================================
   ANSWERS TO PRE-INTEGRATION QUESTIONS
 ================================================================================
 
-QUESTION 1: DASHBOARD URL MISMATCH
-------------------------------------
-  The correct production dashboard URL is:
+QUESTION 1: DASHBOARD URL MISMATCH — WHICH IS THE REAL PRODUCTION URL?
+-----------------------------------------------------------------------
+  ANSWER: The real production dashboard URL is:
 
     https://aff-massapro.space-z.ai
 
-  The "preview" URL (https://preview-f43bf3a5-...space.chatglm.site) is a
-  temporary development/preview URL that was used during the build process.
-  It may change or become unavailable. ALWAYS use the stable
-  aff-massapro.space-z.ai domain in your website integration code.
+  The "preview" URL (https://preview-f43bf3a5-083a-4c86-b60b-5e47f8a89485
+  .space.chatglm.site) is a TEMPORARY development/preview URL. It was used
+  during the build process and may change or become unavailable at any time.
 
-  VERDICT: Use https://aff-massapro.space-z.ai as the dashboardUrl in your
-  MassaProAffiliate.config() call and as the tracker script src.
+  ACTION REQUIRED:
+  - Use https://aff-massapro.space-z.ai as the dashboardUrl in your
+    MassaProAffiliate.config() call
+  - Use https://aff-massapro.space-z.ai as the src for the tracker script
+  - Remove any references to the preview URL from your website code
+  - If your website currently has the preview URL, update it immediately
 
 
-QUESTION 2: TRACKER JS URL MISMATCH
--------------------------------------
-  The correct URL to load the tracker script is:
+QUESTION 2: TRACKER JS URL MISMATCH — WHICH URL SHOULD THE SITE USE?
+----------------------------------------------------------------------
+  ANSWER: The correct URL to load the tracker script is:
 
     https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
 
-  This is the same domain as the dashboard. Do NOT use the preview URL
-  for the script src. The preview URL is temporary.
+  This is the same domain as the production dashboard. The tracker JS is
+  served as a static file from the /public directory of the Next.js app.
 
-  VERDICT: Use https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+  ACTION REQUIRED:
+  - If your site currently loads the script from the preview URL, change
+    it to: https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+  - Clear any browser/CDN cache that may be serving the old URL
 
 
 QUESTION 3: HAS trackEvent() BEEN ADDED TO THE HOSTED TRACKER JS?
 -------------------------------------------------------------------
-  YES. The hosted tracker JS (v3.0) now includes ALL of these methods:
+  ANSWER: YES. The hosted tracker JS is now version 3.0 and includes ALL
+  of these public methods:
 
-    - config({ dashboardUrl })
-    - trackEvent(eventId)
-    - trackLead({ lead_name, lead_email, ... })
-    - trackCart({ plan_type, quantity, cart_value })
-    - trackPurchase({ order_id, revenue, plan_type, customer_email, ... })
-    - trackFunnelStep(stepName, extraData)
-    - getAttribution()
-    - getFirstTouch()
-    - getSessionId()
-    - getFunnelProgress()
+    - MassaProAffiliate.config({ dashboardUrl })
+    - MassaProAffiliate.trackEvent(eventId)
+    - MassaProAffiliate.trackLead({ lead_name, lead_email, ... })
+    - MassaProAffiliate.trackCart({ plan_type, quantity, cart_value })
+    - MassaProAffiliate.trackPurchase({ order_id, revenue, ... })
+    - MassaProAffiliate.trackFunnelStep(stepName, extraData)
+    - MassaProAffiliate.getAttribution()
+    - MassaProAffiliate.getFirstTouch()
+    - MassaProAffiliate.getSessionId()
+    - MassaProAffiliate.getFunnelProgress()
 
-  The trackEvent() method was previously missing but has been added. The
-  tracker JS is served from the dashboard at the URL above.
+  The trackEvent() method was previously missing in earlier versions. It
+  has been added and is live on the production dashboard. The tracker JS
+  is served from:
 
-  VERDICT: trackEvent() is present and working. No manual update needed.
+    https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js
+
+  No manual upload or update is needed on your part.
+
+  WHAT trackEvent() DOES:
+  - Fires a 1x1 pixel GET to /api/track/event (event analytics)
+  - Fires a POST to /api/track/click with event_type='button_click'
+    (click analytics with full UTM attribution)
+  - Both requests are recorded in the database
+
+  HOW TO VERIFY:
+  - Open your browser DevTools → Network tab
+  - Click a button that calls trackEvent()
+  - You should see a GET request to /api/track/event?event=...
+  - And a POST request to /api/track/click with event_type: "button_click"
 
 
 QUESTION 4: ARE ALL API ENDPOINTS DEPLOYED AND WORKING?
 ---------------------------------------------------------
-  YES. All five tracking API endpoints are deployed on the dashboard:
+  ANSWER: YES. All five tracking API endpoints are live on the dashboard:
 
-    1. POST/GET  /api/track/click     — Click & pageview tracking
-    2. POST      /api/track/lead      — Lead form submissions
-    3. POST/GET  /api/track/event     — Generic event tracking (NEW — just added)
-    4. POST      /api/track/purchase  — Cart, purchase, and funnel step events
-    5. PUT       /api/track/status    — Update lead/referral status
+    1. POST/GET  /api/track/click      — Click & pageview tracking
+    2. POST      /api/track/lead       — Lead form submissions
+    3. POST/GET  /api/track/event      — Generic event tracking
+    4. POST      /api/track/purchase   — Cart, purchase, & funnel step events
+    5. PUT       /api/track/status     — Update lead/referral status
 
-  The /api/track/event endpoint was previously missing (causing silent 404s
-  for trackEvent() calls). It has now been created and deployed. It accepts
-  both GET (pixel-based, returns 1x1 GIF) and POST (JSON-based).
+  The /api/track/event endpoint was previously missing, which caused
+  silent 404 errors for all trackEvent() calls. This has been fixed:
+  the endpoint was created and deployed. It accepts both GET (pixel-based,
+  returns a 1x1 transparent GIF) and POST (JSON-based).
 
-  VERDICT: All endpoints are live. The event endpoint issue is fixed.
-
-
-QUESTION 5: SHOULD PURCHASE/BUTTON EVENTS APPEAR IN THE INSTRUCTIONS?
------------------------------------------------------------------------
-  YES. The tracker JS v3.0 supports full e-commerce funnel tracking:
-
-    - trackEvent('btn_buy_basic')          — Button click event (records click)
-    - trackEvent('btn_buy_professional')    — Button click event (records click)
-    - trackEvent('btn_buy_enterprise')      — Button click event (records click)
-    - trackEvent('btn_get_now')             — Button click event (records click)
-    - trackCart({ plan_type, cart_value })  — Add to cart / checkout initiated
-    - trackPurchase({ ... })                — Completed purchase (SERVER-SIDE ONLY)
-    - trackFunnelStep('checkout_start')     — Funnel progress
-
-  These are all documented in detail below in the FULL INTEGRATION GUIDE.
-
-  VERDICT: The instructions below now cover all button, cart, and purchase
-  event tracking. The dashboard records these in the PurchaseEvent and
-  AffiliateEvent database tables, and purchase events automatically trigger
-  the commission engine.
+  All endpoints support CORS (Access-Control-Allow-Origin: *) and do not
+  require an API key — they are public by design for client-side tracking.
 
 
-QUESTION 6: WHEN SHOULD trackPurchase() FIRE? (CRITICAL)
-----------------------------------------------------------
-  Since the /all page redirects users to ClickBank
-  (aireceptio.pay.clickbank.net), the user LEAVES the site after clicking
-  "Buy Now". We cannot fire trackPurchase() client-side because:
+QUESTION 5: SHOULD BUTTON/PURCHASE EVENTS APPEAR IN THE INSTRUCTIONS?
+----------------------------------------------------------------------
+  ANSWER: YES. The tracker JS v3.0 supports full e-commerce funnel tracking.
+  All button events, cart events, and purchase events are documented in this
+  guide. Here is the summary:
 
-    (a) The user is redirected to ClickBank and may not return to the site
-    (b) We don't know at click time whether the user will complete payment
-    (c) Firing trackPurchase() on the button click would count ALL clicks
-        as purchases, inflating conversion data and incorrectly awarding
-        commissions for users who never actually paid
+  BUTTON CLICK EVENTS (fire on every CTA button):
+    - MassaProAffiliate.trackEvent('btn_buy_basic')
+    - MassaProAffiliate.trackEvent('btn_buy_professional')
+    - MassaProAffiliate.trackEvent('btn_buy_enterprise')
+    - MassaProAffiliate.trackEvent('btn_get_now')
 
-  THEREFORE, we use OPTION A:
+  ADD-TO-CART EVENTS (fire on "Buy Now" buttons — NOT purchase):
+    - MassaProAffiliate.trackCart({ plan_type: 'Basic', cart_value: 29 })
+    - MassaProAffiliate.trackCart({ plan_type: 'Professional', cart_value: 99 })
+    - MassaProAffiliate.trackCart({ plan_type: 'Enterprise', cart_value: 199 })
 
-    trackCart()    →  FIRES ON "BUY NOW" CLICK (client-side)
-                      This records the user's INTENT to purchase (add to
-                      cart / checkout initiated). It does NOT trigger
-                      commissions. It captures the affiliate attribution
-                      from the cookie while we still have the user on site.
+  META PIXEL (add_to_cart, NOT Purchase, on "Buy Now" buttons):
+    - fbq('track', 'AddToCart', { ... })   ← CORRECT for "Buy Now"
+    - fbq('track', 'Purchase', { ... })     ← WRONG for "Buy Now"
 
-    trackPurchase()  →  FIRES SERVER-SIDE VIA CLICKBANK INSTANT
-                         NOTIFICATION (postback)
-                         ClickBank sends a server-to-server POST when a
-                         payment is confirmed. This is the ONLY accurate
-                         place to fire trackPurchase() because it confirms
-                         the user actually paid. This triggers the
-                         commission engine.
+  GOOGLE ANALYTICS (add_to_cart, NOT purchase, on "Buy Now" buttons):
+    - gtag('event', 'add_to_cart', { ... }) ← CORRECT for "Buy Now"
+    - gtag('event', 'purchase', { ... })    ← WRONG for "Buy Now"
 
-  DO NOT fire trackPurchase() on the "Buy Now" button click. That would
-  treat every click as a completed purchase, which is inaccurate and would
-  award commissions for users who abandon the ClickBank checkout.
+  PURCHASE EVENTS (fire ONLY via ClickBank server-side postback):
+    - POST /api/track/purchase with event_type: 'purchase'
 
-  VERDICT: trackCart() on click, trackPurchase() via ClickBank postback.
+  CRITICAL RULE: "Buy Now" buttons redirect to ClickBank. The user has
+  NOT purchased yet — they are only initiating checkout. Therefore:
+    - In the affiliate dashboard: use trackCart() (not trackPurchase())
+    - In Meta Pixel: use AddToCart (not Purchase)
+    - In Google Analytics: use add_to_cart (not purchase)
+    - The real Purchase event fires server-side when ClickBank confirms
+      payment via their Instant Notification postback
+
+  This is documented in full detail below.
 
 
 ================================================================================
@@ -140,7 +149,8 @@ QUESTION 6: WHEN SHOULD trackPurchase() FIRE? (CRITICAL)
 ---------------------------------------------------------------
 
 Add these two <script> tags to EVERY page of receptionist.massapro.com,
-ideally just before the closing </body> tag (or in your site-wide layout):
+ideally just before the closing </body> tag or in your site-wide layout
+template. This must appear on ALL pages, not just the /all page.
 
   <!-- MassaPro Affiliate Tracker v3.0 -->
   <script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
@@ -150,41 +160,48 @@ ideally just before the closing </body> tag (or in your site-wide layout):
     });
   </script>
 
-WHAT THIS DOES:
-  - When a visitor arrives with ?affid=XXX in the URL, the script:
+WHAT THIS DOES AUTOMATICALLY:
+  When a visitor arrives with ?affid=XXX in the URL, the script:
     (a) Saves the affiliate ID in a 30-day cookie (massapro_affiliate)
     (b) Saves first-touch UTM parameters in a separate 30-day cookie
-       (massapro_ft) — these are NEVER overwritten
-    (c) Creates a session cookie (massapro_session, 1 day)
+       (massapro_ft) — these are NEVER overwritten on return visits
+    (c) Creates a session cookie (massapro_session, 1-day expiry)
     (d) Fires a click tracking event to /api/track/click
     (e) Saves "landing" as the first funnel step
 
-  - On subsequent page views (without ?affid=), the script:
+  On subsequent page views (without ?affid=), the script:
     (a) Reads the existing affiliate cookie
     (b) Updates last-touch UTM parameters if new UTM params are present
     (c) Does NOT overwrite first-touch UTMs
 
 COOKIE DETAILS:
-  - massapro_affiliate: 30-day expiry, SameSite=Lax, contains:
-      { affid, utm_source, utm_medium, utm_campaign, utm_content,
-        utm_term, ft_utm_source, ft_utm_medium, ft_utm_campaign,
-        ft_utm_content, ft_utm_term, landing_page, timestamp }
-  - massapro_ft: 30-day expiry, first-touch UTMs (set once, never updated)
-  - massapro_session: 1-day expiry, session tracking ID
-  - massapro_funnel: 30-day expiry, funnel step progress
+  Cookie name:          massapro_affiliate
+  Expiry:               30 days
+  SameSite:             Lax
+  Contents (JSON):      { affid, utm_source, utm_medium, utm_campaign,
+                          utm_content, utm_term, ft_utm_source,
+                          ft_utm_medium, ft_utm_campaign, ft_utm_content,
+                          ft_utm_term, landing_page, timestamp }
+
+  Cookie name:          massapro_ft
+  Expiry:               30 days
+  Purpose:              First-touch UTMs — set once, never updated
+
+  Cookie name:          massapro_session
+  Expiry:               1 day
+  Purpose:              Session tracking ID
+
+  Cookie name:          massapro_funnel
+  Expiry:               30 days
+  Purpose:              Funnel step progress (JSON array of step names)
 
 
 ---------------------------------------------------------------
   STEP 2: TRACK BUTTON CLICK EVENTS
 ---------------------------------------------------------------
 
-Add MassaProAffiliate.trackEvent(eventId) calls to your CTA buttons.
-This fires TWO tracking requests:
-  (1) A 1x1 pixel GET to /api/track/event — for event analytics
-  (2) A POST to /api/track/click with event_type='button_click' — for
-      click analytics with full UTM attribution
-
-Use trackEvent() for informational CTAs that do NOT redirect to ClickBank:
+Add MassaProAffiliate.trackEvent(eventId) to CTA buttons that do NOT
+redirect to ClickBank (informational CTAs, demo requests, navigation).
 
   <!-- Hero CTA -->
   <button onclick="MassaProAffiliate.trackEvent('btn_hero_demo')">
@@ -196,112 +213,198 @@ Use trackEvent() for informational CTAs that do NOT redirect to ClickBank:
     Get Started Now
   </button>
 
-  <!-- Navigation Links -->
+  <!-- Navigation -->
   <a href="/pricing"
      onclick="MassaProAffiliate.trackEvent('nav_pricing')">
     View Pricing
   </a>
 
 EVENT ID NAMING CONVENTION:
-  Use a consistent prefix to categorize events:
-    btn_      — Button clicks (btn_hero_demo, btn_get_now)
-    nav_      — Navigation clicks (nav_pricing, nav_features)
-    form_     — Form interactions (form_started, form_submitted)
-    video_    — Video interactions (video_play, video_complete)
-    scroll_   — Scroll milestones (scroll_pricing, scroll_testimonials)
+  Prefix    Category              Examples
+  ------    --------              --------
+  btn_      Button clicks         btn_hero_demo, btn_get_now
+  nav_      Navigation clicks     nav_pricing, nav_features
+  form_     Form interactions     form_started, form_submitted
+  video_    Video interactions    video_play, video_complete
+  scroll_   Scroll milestones     scroll_pricing, scroll_testimonials
 
-NOTE: For the "Buy Now" pricing buttons that redirect to ClickBank,
-use trackCart() instead of trackEvent() — see Step 3 below.
+WHAT trackEvent() FIRES:
+  (1) GET /api/track/event?event=<eventId>&affid=<affid>
+      → Recorded in AffiliateEvent table (event analytics)
+  (2) POST /api/track/click with event_type='button_click'
+      → Recorded in Click table (click analytics with UTM attribution)
 
-NOTE: If no affiliate cookie exists (i.e., the visitor was NOT referred
-by an affiliate), trackEvent() will still fire the event pixel but will
-skip the click POST (since there's no affiliate to attribute the click to).
-The event is still recorded in the AffiliateEvent table for analytics.
+NOTE: If no affiliate cookie exists (visitor not referred by an affiliate),
+trackEvent() still fires the event pixel but skips the click POST. The
+event is still recorded in the AffiliateEvent table for overall analytics.
 
 
 ---------------------------------------------------------------
-  STEP 3: TRACK "BUY NOW" CLICKS AS ADD-TO-CART (CLICKBANK)
+  STEP 3: TRACK "BUY NOW" BUTTONS — ADD TO CART + GA + META
 ---------------------------------------------------------------
 
-IMPORTANT: This is the most critical step. When a user clicks a "Buy Now"
-button on the pricing section, they are redirected to ClickBank. This is
-an "add to cart" or "checkout initiated" event — NOT a purchase. The user
-has not yet paid. We use trackCart() here, NOT trackPurchase().
+This is the most critical step. When a user clicks a "Buy Now" button
+on receptionist.massapro.com, they are redirected to ClickBank. The user
+has NOT purchased yet — they are initiating a checkout. Therefore:
 
-WHY trackCart() AND NOT trackPurchase():
-  - The user is leaving the site to ClickBank
+  - Affiliate dashboard:  trackCart()     (NOT trackPurchase())
+  - Meta Pixel:           AddToCart       (NOT Purchase)
+  - Google Analytics:     add_to_cart     (NOT purchase)
+
+WHY NOT PURCHASE?
+  - The user leaves the site and goes to ClickBank
   - They may abandon the ClickBank checkout without paying
-  - Firing trackPurchase() here would count every click as a purchase,
-    awarding commissions for users who never actually paid
-  - trackCart() records the INTENT to purchase without triggering
-    commissions — that is the correct behavior
+  - Firing a Purchase event here would count every click as a sale
+  - That would inflate conversions and incorrectly award commissions
+  - The real Purchase event fires ONLY when ClickBank confirms payment
+    server-side via their Instant Notification postback (see Step 5)
 
-For each "Buy Now" button, add BOTH trackEvent() AND trackCart():
+FOR EACH "BUY NOW" BUTTON, FIRE THREE THINGS:
+  (1) MassaProAffiliate.trackEvent('btn_buy_<plan>')   — button click
+  (2) MassaProAffiliate.trackCart({...})                — add to cart
+  (3) fbq('track', 'AddToCart', {...})                  — Meta AddToCart
+  (4) gtag('event', 'add_to_cart', {...})               — GA4 add_to_cart
 
-  <!-- Basic Plan Buy Button -->
+HERE IS THE COMPLETE CODE FOR ALL THREE "BUY NOW" BUTTONS:
+
+  <!-- ============================================ -->
+  <!-- BASIC PLAN — BUY NOW BUTTON                  -->
+  <!-- ============================================ -->
   <a href="https://aireceptio.pay.clickbank.net/?plan=basic"
-     onclick="MassaProAffiliate.trackEvent('btn_buy_basic');
-              MassaProAffiliate.trackCart({
-                plan_type: 'Basic',
-                quantity: 1,
-                cart_value: 29
-              });">
+     onclick="
+       var aff = MassaProAffiliate.getAttribution();
+       if (aff && aff.affid) {
+         this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
+       }
+       MassaProAffiliate.trackEvent('btn_buy_basic');
+       MassaProAffiliate.trackCart({ plan_type: 'Basic', quantity: 1, cart_value: 29 });
+       fbq('track', 'AddToCart', {
+         value: 29,
+         currency: 'USD',
+         content_name: 'MassaPro Basic Plan',
+         content_type: 'product'
+       });
+       gtag('event', 'add_to_cart', {
+         currency: 'USD',
+         value: 29,
+         items: [{
+           item_id: 'basic',
+           item_name: 'MassaPro Basic Plan',
+           item_category: 'Subscription',
+           price: 29,
+           quantity: 1
+         }]
+       });
+     ">
     Buy Now — Basic
   </a>
 
-  <!-- Professional Plan Buy Button -->
+  <!-- ============================================ -->
+  <!-- PROFESSIONAL PLAN — BUY NOW BUTTON           -->
+  <!-- ============================================ -->
   <a href="https://aireceptio.pay.clickbank.net/?plan=professional"
-     onclick="MassaProAffiliate.trackEvent('btn_buy_professional');
-              MassaProAffiliate.trackCart({
-                plan_type: 'Professional',
-                quantity: 1,
-                cart_value: 99
-              });">
+     onclick="
+       var aff = MassaProAffiliate.getAttribution();
+       if (aff && aff.affid) {
+         this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
+       }
+       MassaProAffiliate.trackEvent('btn_buy_professional');
+       MassaProAffiliate.trackCart({ plan_type: 'Professional', quantity: 1, cart_value: 99 });
+       fbq('track', 'AddToCart', {
+         value: 99,
+         currency: 'USD',
+         content_name: 'MassaPro Professional Plan',
+         content_type: 'product'
+       });
+       gtag('event', 'add_to_cart', {
+         currency: 'USD',
+         value: 99,
+         items: [{
+           item_id: 'professional',
+           item_name: 'MassaPro Professional Plan',
+           item_category: 'Subscription',
+           price: 99,
+           quantity: 1
+         }]
+       });
+     ">
     Buy Now — Professional
   </a>
 
-  <!-- Enterprise Plan Buy Button -->
+  <!-- ============================================ -->
+  <!-- ENTERPRISE PLAN — BUY NOW BUTTON             -->
+  <!-- ============================================ -->
   <a href="https://aireceptio.pay.clickbank.net/?plan=enterprise"
-     onclick="MassaProAffiliate.trackEvent('btn_buy_enterprise');
-              MassaProAffiliate.trackCart({
-                plan_type: 'Enterprise',
-                quantity: 1,
-                cart_value: 199
-              });">
+     onclick="
+       var aff = MassaProAffiliate.getAttribution();
+       if (aff && aff.affid) {
+         this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
+       }
+       MassaProAffiliate.trackEvent('btn_buy_enterprise');
+       MassaProAffiliate.trackCart({ plan_type: 'Enterprise', quantity: 1, cart_value: 199 });
+       fbq('track', 'AddToCart', {
+         value: 199,
+         currency: 'USD',
+         content_name: 'MassaPro Enterprise Plan',
+         content_type: 'product'
+       });
+       gtag('event', 'add_to_cart', {
+         currency: 'USD',
+         value: 199,
+         items: [{
+           item_id: 'enterprise',
+           item_name: 'MassaPro Enterprise Plan',
+           item_category: 'Subscription',
+           price: 199,
+           quantity: 1
+         }]
+       });
+     ">
     Buy Now — Enterprise
   </a>
 
-WHY BOTH trackEvent() AND trackCart():
-  - trackEvent('btn_buy_basic')  — Records the BUTTON CLICK for event
-    analytics (which button was clicked, UTM attribution). This goes into
-    the Click table and AffiliateEvent table.
-  - trackCart({...})             — Records the ADD-TO-CART / CHECKOUT
-    INITIATED event for the e-commerce funnel. This goes into the
-    PurchaseEvent table and saves the funnel step. It does NOT trigger
-    commissions.
+WHAT EACH TRACKING CALL DOES:
 
-WHAT trackCart() DOES:
-  - Saves "add_to_cart" as a funnel step in the cookie
-  - Fires an event pixel: add_to_cart_Professional (or whichever plan)
-  - POSTs to /api/track/purchase with event_type: 'add_to_cart'
-  - Records the event in the PurchaseEvent database table with full UTM
-    attribution (first-touch + last-touch from cookies)
-  - Does NOT trigger any commission (commissions only fire on purchase)
+  trackEvent('btn_buy_basic'):
+    - Fires GET /api/track/event?event=btn_buy_basic
+      → Recorded in AffiliateEvent table
+    - Fires POST /api/track/click with event_type='button_click'
+      → Recorded in Click table
 
-NOTE: Even if no affiliate cookie exists, the cart event is still
-recorded (without affiliate attribution) for overall analytics.
+  trackCart({ plan_type: 'Basic', cart_value: 29 }):
+    - Saves "add_to_cart" as a funnel step in the cookie
+    - Fires event pixel: add_to_cart_Basic
+    - Fires POST /api/track/purchase with event_type: 'add_to_cart'
+      → Recorded in PurchaseEvent table
+    - Does NOT trigger any commission
+
+  fbq('track', 'AddToCart', { ... }):
+    - Sends AddToCart event to Meta Pixel
+    - Used for ad optimization and retargeting
+    - NOT Purchase — the user has not paid yet
+
+  gtag('event', 'add_to_cart', { ... }):
+    - Sends add_to_cart event to Google Analytics 4
+    - Used for e-commerce funnel analysis
+    - NOT purchase — the user has not paid yet
+
+  cvendthru parameter:
+    - Appends the MassaPro affid to the ClickBank URL
+    - ClickBank includes this in the Instant Notification postback
+    - This is how we link a ClickBank sale back to the MassaPro affiliate
+    - Example: &cvendthru=massa001
 
 CART VALUES — Update these to match your actual ClickBank prices:
-  - Basic:        $29  (update to actual price)
-  - Professional: $99  (update to actual price)
-  - Enterprise:   $199 (update to actual price)
+  - Basic:        $29   (update to actual ClickBank price)
+  - Professional: $99   (update to actual ClickBank price)
+  - Enterprise:   $199  (update to actual ClickBank price)
 
 
 ---------------------------------------------------------------
   STEP 4: TRACK LEAD FORM SUBMISSIONS
 ---------------------------------------------------------------
 
-When a visitor submits a lead form (e.g., contact form, demo request),
+When a visitor submits a lead form (contact form, demo request, etc.),
 call MassaProAffiliate.trackLead() to record the lead and attribute it
 to the referring affiliate.
 
@@ -310,8 +413,8 @@ to the referring affiliate.
     lead_email: 'john@company.com',
     lead_phone: '+1-555-0123',
     lead_company: 'Acme Corp',
-    plan_type: 'Professional',        // "Basic", "Professional", "Enterprise"
-    initial_status: 'Lead'            // "Lead", "Booked Call", "Paying Customer"
+    plan_type: 'Professional',
+    initial_status: 'Lead'
   })
   .then(function(result) {
     console.log('Lead tracked:', result.data);
@@ -327,11 +430,11 @@ REQUIREMENTS:
 
 COMMISSION TRIGGER:
   If initial_status is set to 'Paying Customer', the signup commission
-  ($100 standard / $150 premium / custom) is immediately awarded to the
-  affiliate. For other statuses, the commission is awarded later when the
-  status is updated to 'Paying Customer' via /api/track/status.
+  ($100 standard / $150 premium / custom) is immediately awarded. For
+  other statuses, the commission is awarded later when the status is
+  updated to 'Paying Customer' via /api/track/status.
 
-FIRST-TOUCH + LAST-TOUCH UTM ATTRIBUTION:
+UTM ATTRIBUTION:
   The trackLead() call automatically includes both first-touch and
   last-touch UTM parameters from the cookies. No manual UTM passing
   is needed — the tracker script handles it internally.
@@ -341,14 +444,23 @@ FIRST-TOUCH + LAST-TOUCH UTM ATTRIBUTION:
   STEP 5: TRACK COMPLETED PURCHASES VIA CLICKBANK POSTBACK
 ---------------------------------------------------------------
 
-When ClickBank confirms a payment, it sends a server-to-server
-Instant Notification (INS) to a URL you configure in your ClickBank
-account. This is the ONLY accurate place to fire trackPurchase()
-because it confirms the user actually paid.
+When ClickBank confirms a payment, it sends a server-to-server Instant
+Notification (INS) to a URL you configure in your ClickBank account.
+This is the ONLY accurate place to fire trackPurchase() because it
+confirms the user actually paid.
 
-DO NOT fire trackPurchase() on the client side. The user leaves your
-site when they click "Buy Now" and goes to ClickBank. You have no way
-to know client-side whether they completed payment.
+DO NOT fire trackPurchase() on the client side. The user leaves
+receptionist.massapro.com when they click "Buy Now" and goes to
+ClickBank. You have no way to know client-side whether they completed
+payment.
+
+WHEN DOES THE REAL PURCHASE EVENT FIRE?
+
+  System              Event Name        When It Fires
+  ------------------  ----------------  ----------------------------------
+  Affiliate Dashboard  trackPurchase()   ClickBank postback (server-side)
+  Meta Pixel           Purchase          Thank-you page (after ClickBank)
+  Google Analytics     purchase          Thank-you page (after ClickBank)
 
 CLICKBANK POSTBACK SETUP:
 
@@ -358,102 +470,61 @@ CLICKBANK POSTBACK SETUP:
 
      https://aff-massapro.space-z.ai/api/track/clickbank
 
-   (NOTE: This endpoint needs to be created — see the implementation
-   section below.)
+   (NOTE: This endpoint needs to be built — see implementation below.)
 
-4. Select the notification types you want:
-   - SALE          (required — fires when a purchase is completed)
-   - BILL          (optional — fires for recurring billing)
-   - REFUND        (optional — fires when a refund is issued)
-   - CANCEL        (optional — fires when a subscription is cancelled)
+4. Select notification types:
+   - SALE    (required — fires when a purchase is completed)
+   - BILL    (optional — fires for recurring billing)
+   - REFUND  (optional — fires when a refund is issued)
+   - CANCEL  (optional — fires when a subscription is cancelled)
 
-5. Click "Save"
+5. Save settings
 
 HOW THE CLICKBANK POSTBACK WORKS:
 
-  ClickBank sends a POST to your notification URL with data like:
+  ClickBank sends a POST with data like:
 
-    cbreceipt      = "XXXXXXXX"          (ClickBank receipt ID — use as order_id)
-    cbpop          = "XXXXXXXX"          (Verification hash)
-    cbaffi         = "XXXXXXXX"          (ClickBank affiliate — NOT the same as
-                                          your MassaPro affiliate)
-    cbskin         = "XXXXX"             (Product ID)
-    cbtrns         = "XXXXXXXX"          (Transaction ID)
-    cbitem         = "XX"                (Item number)
-    cbttrns        = "XXXXXXXX"          (Parent transaction for rebills)
-    cbbfname       = "John"              (Buyer first name)
-    cblname        = "Smith"             (Buyer last name)
-    cbemail        = "john@example.com"  (Buyer email)
-    cccountry      = "US"                (Country)
-    cname          = "Product Name"      (What they bought)
-    cprice         = "99.00"             (Price paid)
-    ccur           = "USD"               (Currency)
-    ctype          = "SALE"              (Transaction type)
+    cbreceipt    = "XXXXXXXX"         (Receipt ID — use as order_id)
+    cbpop        = "XXXXXXXX"         (Verification hash)
+    cbaffi       = "XXXXXXXX"         (ClickBank affiliate — NOT MassaPro)
+    cbitem       = "XX"               (Item number)
+    cbbfname     = "John"             (Buyer first name)
+    cblname      = "Smith"            (Buyer last name)
+    cbemail      = "john@example.com" (Buyer email)
+    cname        = "Product Name"     (Product name)
+    cprice       = "99.00"            (Price paid)
+    ccur         = "USD"              (Currency)
+    ctype        = "SALE"             (Transaction type)
+    cvendthru    = "massa001"         (Vendor through-parameter — THIS IS
+                                       WHERE THE MASSAPRO AFFID APPEARS)
 
   YOUR SERVER needs to:
-    (a) Verify the cbpop hash (security — to confirm it's really from
-        ClickBank and not a spoofed request)
-    (b) Map the ClickBank item number to your MassaPro plan_type
-        (Basic / Professional / Enterprise)
-    (c) Look up the MassaPro affiliate using the buyer's email or a
-        session identifier that was passed to ClickBank
-    (d) Call the /api/track/purchase endpoint with the purchase data
+    (a) Verify the cbpop hash (security — confirms it is from ClickBank)
+    (b) Map the ClickBank item number to a MassaPro plan_type
+    (c) Extract the MassaPro affid from cvendthru
+    (d) Call /api/track/purchase with the purchase data
+    (e) Respond with HTTP 200 (ClickBank requires this to stop retrying)
 
-CLICKBANK-TO-MASSAPRO AFFILIATE MAPPING — THE KEY CHALLENGE:
+HOW cvendthru CARRIES THE MASSAPRO AFFID TO CLICKBANK:
 
-  ClickBank has its own affiliate system (cbaffi). This is SEPARATE from
-  your MassaPro affiliate system. When ClickBank sends the postback, it
-  includes cbaffi (the ClickBank affiliate) but NOT your MassaPro affid.
+  When the user clicks "Buy Now" on receptionist.massapro.com, the
+  onclick handler reads the affiliate cookie and appends it:
 
-  To link a ClickBank purchase back to the correct MassaPro affiliate,
-  you need to pass the MassaPro affid to ClickBank as metadata, then
-  retrieve it in the postback. There are two approaches:
+    https://aireceptio.pay.clickbank.net/?plan=basic&cvendthru=massa001
 
-  APPROACH A: PASS affid IN THE CLICKBANK URL (RECOMMENDED)
-  Append the MassaPro affid to the ClickBank checkout URL as a query
-  parameter. ClickBank will include it in the postback as "cvendthru"
-  (vendor through-parameter, max 100 chars).
+  ClickBank stores this value and includes it in the postback. This is
+  how we link a confirmed ClickBank sale back to the correct MassaPro
+  affiliate. Without cvendthru, there is no way to know which MassaPro
+  affiliate referred the buyer.
 
-  On the "Buy Now" link, change from:
-    https://aireceptio.pay.clickbank.net/?plan=basic
+  Fallback: If cvendthru is missing, the server can search for an
+  existing referral by the buyer's email address:
 
-  To:
-    https://aireceptio.pay.clickbank.net/?plan=basic&cvendthru=MASSA001
+    GET /api/referrals?lead_email=john@example.com
 
-  Where "MASSA001" is the affiliate's affid from the cookie. You can
-  read it in JavaScript before the redirect:
+CLICKBANK POSTBACK SERVER ENDPOINT (TO BE IMPLEMENTED):
 
-    <a href="https://aireceptio.pay.clickbank.net/?plan=basic"
-       onclick="var aff = MassaProAffiliate.getAttribution();
-                if (aff && aff.affid) {
-                  this.href = this.href + '&cvendthru=' + aff.affid;
-                }
-                MassaProAffiliate.trackEvent('btn_buy_basic');
-                MassaProAffiliate.trackCart({ plan_type: 'Basic', quantity: 1, cart_value: 29 });">
-      Buy Now — Basic
-    </a>
-
-  ClickBank will then include cvendthru=MASSA001 in the postback, and
-  your server can use it as the affid for the trackPurchase() call.
-
-  APPROACH B: MATCH BY BUYER EMAIL
-  When the ClickBank postback arrives, use the buyer's email (cbemail)
-  to search for an existing referral in the MassaPro dashboard:
-
-    GET https://aff-massapro.space-z.ai/api/referrals?lead_email=john@example.com
-
-  If a referral exists with that email and has an affiliate, you know
-  which MassaPro affiliate to credit. This approach is less reliable
-  because: (a) the user may not have submitted a lead form before
-  purchasing, (b) the email on ClickBank may differ from the one they
-  used on your lead form.
-
-  RECOMMENDATION: Use Approach A (cvendthru) as the primary method,
-  and Approach B (email matching) as a fallback.
-
-CLICKBANK POSTBACK SERVER IMPLEMENTATION:
-
-  A new endpoint needs to be created at:
+  A new endpoint needs to be created:
 
     POST https://aff-massapro.space-z.ai/api/track/clickbank
 
@@ -463,24 +534,52 @@ CLICKBANK POSTBACK SERVER IMPLEMENTATION:
     3. Parse the transaction type (SALE, BILL, REFUND, etc.)
     4. Extract the MassaPro affid from cvendthru
     5. Map the ClickBank item number to a MassaPro plan_type
-    6. Call the existing /api/track/purchase logic with:
-         event_type: 'purchase'
-         order_id:   cbreceipt
-         revenue:    cprice
-         plan_type:  mapped from cbitem
-         affid:      from cvendthru
-         customer_email: cbemail
-         customer_name:  cbbfname + " " + cblname
-    7. Respond with 200 OK (ClickBank requires 200 to stop retrying)
+    6. Call the /api/track/purchase logic with:
+         event_type:      'purchase'
+         order_id:        cbreceipt
+         revenue:         cprice
+         plan_type:       mapped from cbitem
+         affid:           from cvendthru
+         customer_email:  cbemail
+         customer_name:   cbbfname + " " + cblname
+    7. Respond with 200 OK
 
-  This endpoint will be implemented as part of the ClickBank integration
-  phase. It requires your ClickBank secret key for cbpop verification.
-  Once implemented, the full purchase-to-commission flow will work
-  automatically:
+  This will be implemented as part of the ClickBank integration phase.
+  It requires your ClickBank secret key for cbpop verification.
 
-    ClickBank SALE postback → /api/track/clickbank → purchase event →
-    Referral created/updated → Commission awarded → Affiliate dashboard
-    shows new conversion and earnings
+META PURCHASE + GA4 PURCHASE (AFTER CLICKBANK PAYMENT):
+
+  For Meta and GA4, the Purchase event should fire on a thank-you page
+  that the user returns to after ClickBank payment. Configure ClickBank
+  to redirect to:
+
+    https://receptionist.massapro.com/thank-you
+
+  On that page, fire:
+
+    // Meta Pixel — Purchase (only on thank-you page)
+    fbq('track', 'Purchase', {
+      value: orderValue,
+      currency: 'USD',
+      content_name: planName
+    });
+
+    // GA4 — purchase (only on thank-you page)
+    gtag('event', 'purchase', {
+      transaction_id: orderReceipt,
+      value: orderValue,
+      currency: 'USD',
+      items: [{
+        item_id: planId,
+        item_name: planName,
+        item_category: 'Subscription',
+        price: orderValue,
+        quantity: 1
+      }]
+    });
+
+  Note: You will need to pass the order details from ClickBank to the
+  thank-you page via URL parameters or a session mechanism.
 
 
 ---------------------------------------------------------------
@@ -493,7 +592,6 @@ journey. This helps visualize the conversion funnel in the dashboard.
   MassaProAffiliate.trackFunnelStep('view_pricing');
   MassaProAffiliate.trackFunnelStep('view_demo');
   MassaProAffiliate.trackFunnelStep('checkout_start');
-  MassaProAffiliate.trackFunnelStep('payment_info_entered');
 
 WHAT THIS DOES:
   - Saves the step name in the funnel cookie (massapro_funnel)
@@ -501,27 +599,24 @@ WHAT THIS DOES:
   - Fires a click tracking event with event_type='funnel_step'
 
 FUNNEL STEPS ARE ACCUMULATIVE:
-  Each unique step name is added only once to the funnel cookie. If the
-  same step is tracked multiple times, duplicates are ignored. The current
-  funnel progress can be retrieved at any time:
+  Each unique step name is added only once. Duplicates are ignored.
 
   var progress = MassaProAffiliate.getFunnelProgress();
   // Returns: { steps: ["landing", "view_pricing", "add_to_cart", ...] }
 
 AUTOMATIC FUNNEL STEPS:
-  The tracker automatically records these steps:
-    - "landing"        — When visitor first arrives with ?affid=
-    - "lead_form"      — When trackLead() is called
-    - "add_to_cart"    — When trackCart() is called (i.e., "Buy Now" click)
-    - "purchase"       — When trackPurchase() is called (via ClickBank postback)
+  The tracker automatically records:
+    - "landing"      — When visitor first arrives with ?affid=
+    - "lead_form"    — When trackLead() is called
+    - "add_to_cart"  — When trackCart() is called ("Buy Now" click)
+    - "purchase"     — When trackPurchase() is called (ClickBank postback)
 
 
 ---------------------------------------------------------------
   STEP 7: UPDATE LEAD STATUS (SERVER-TO-SERVER)
 ---------------------------------------------------------------
 
-When a lead's status changes (e.g., from "Lead" to "Booked Call" to
-"Paying Customer"), call the /api/track/status endpoint from your server
+When a lead's status changes, call /api/track/status from your server
 or from the admin dashboard.
 
   PUT https://aff-massapro.space-z.ai/api/track/status
@@ -529,7 +624,6 @@ or from the admin dashboard.
 
   {
     "affid": "massa001",
-    "referral_id": "cl_xxx",          // OR use lead_email + affid
     "lead_email": "john@company.com",
     "new_status": "Paying Customer",
     "plan_type": "Professional",
@@ -542,129 +636,43 @@ VALID STATUS VALUES:
   - "Paying Customer"
   - "Churned"
 
-LEGACY STATUS MAPPING (automatically converted):
+LEGACY STATUS MAPPING (auto-converted):
   - "Call Booked"       → "Booked Call"
   - "Active Subscriber" → "Paying Customer"
 
 COMMISSION TRIGGERS ON STATUS UPDATE:
-  - Transitioning to "Paying Customer" from any non-paying status:
-    Awards the signup commission ($100/$150/custom) immediately.
-  - Incrementing months_active for a "Paying Customer":
-    Awards a recurring commission for each additional month
-    (up to 12 months total).
+  - Transitioning to "Paying Customer": awards signup commission immediately
+  - Incrementing months_active: awards recurring commission per month
+    (up to 12 months)
 
-ALTERNATIVE TO CLICKBANK POSTBACK:
-  If ClickBank postback integration is delayed, you can also update
-  lead status manually via the admin dashboard. When a ClickBank sale
-  is confirmed, an admin can find the referral by email and update the
-  status to "Paying Customer" — this triggers the commission. While
-  manual, this ensures affiliates get credited even before the automated
-  postback is implemented.
-
-
----------------------------------------------------------------
-  STEP 8: INTEGRATE WITH META (FACEBOOK) PIXEL
----------------------------------------------------------------
-
-If you fire Meta fbq('track', 'Purchase', ...) events on your site, note
-that you should fire fbq('track', 'InitiateCheckout', ...) on the "Buy
-Now" click (since the user is going to ClickBank, not completing a
-purchase on your site). The Meta Purchase event should only fire if the
-user returns to a thank-you page after ClickBank payment.
-
-Example (fire on "Buy Now" click):
-
-  // Meta Pixel — checkout initiated (NOT purchase)
-  fbq('track', 'InitiateCheckout', {
-    value: 99,
-    currency: 'USD',
-    content_name: 'Professional Plan'
-  });
-
-  // MassaPro Affiliate — add to cart / checkout initiated
-  MassaProAffiliate.trackCart({
-    plan_type: 'Professional',
-    quantity: 1,
-    cart_value: 99
-  });
-
-These are independent tracking systems — both should fire. The Meta
-pixel does NOT communicate with the MassaPro affiliate system.
-
-For Meta Purchase events, configure ClickBank to redirect to a thank-you
-page on your site after payment, and fire fbq('track', 'Purchase', ...)
-on that page.
+INTERIM WORKFLOW (before ClickBank postback is built):
+  When a ClickBank sale is confirmed, an admin can manually update the
+  referral status to "Paying Customer" via the admin dashboard or the
+  /api/track/status endpoint. This triggers the commission manually.
+  While not ideal, it ensures affiliates get credited immediately.
 
 
 ================================================================================
-  CLICKBANK INTEGRATION — DETAILED IMPLEMENTATION ROADMAP
+  COMPLETE EVENT TRACKING SUMMARY
 ================================================================================
 
-The full ClickBank postback integration has two phases:
+Below is a complete reference of which events fire where and when:
 
-PHASE 1 — IMMEDIATE (what you implement now):
-  - Add tracker script to all pages
-  - Add trackEvent() to all CTA buttons
-  - Add trackCart() to all "Buy Now" buttons (with cvendthru=affid)
-  - Add trackLead() to lead forms
-  - All data flows into the dashboard: clicks, button events, cart events,
-    leads
-  - Affiliates see traffic, button clicks, and cart activity in real-time
-  - Commissions are NOT yet automated (no purchase confirmation)
+  USER ACTION                  AFFILIATE DASHBOARD      META PIXEL          GA4
+  --------------------------   ----------------------   -----------------   ---------------
+  Page load (with ?affid=)     trackClick (auto)        PageView            page_view
+  CTA button (non-Buy Now)     trackEvent(eventId)      —                   —
+  "Buy Now" button click       trackEvent(eventId)      AddToCart           add_to_cart
+                               trackCart({...})
+  Lead form submission         trackLead({...})         Lead                generate_lead
+  Purchase confirmed           trackPurchase({...})     Purchase            purchase
+  (ClickBank postback)         (server-side only)       (thank-you page)    (thank-you page)
 
-PHASE 2 — CLICKBANK POSTBACK (implement after ClickBank setup):
-  - Create /api/track/clickbank endpoint on the dashboard
-  - Configure ClickBank Instant Notification URL
-  - Implement cbpop verification
-  - Map ClickBank item numbers to MassaPro plan types
-  - Extract MassaPro affid from cvendthru
-  - Auto-fire trackPurchase() on confirmed ClickBank sales
-  - Commissions auto-awarded when purchase is confirmed
-  - Refund/cancellation handling (mark referrals as "Churned")
-
-IN THE MEANTIME (between Phase 1 and Phase 2):
-  - When a ClickBank sale is confirmed, an admin can manually update
-    the referral status to "Paying Customer" via the admin dashboard
-    or via the /api/track/status endpoint
-  - This triggers the commission manually — not ideal but functional
-  - Once Phase 2 is complete, this becomes fully automated
-
-
-================================================================================
-  SERVER-SIDE PURCHASE TRACKING (ADVANCED)
-================================================================================
-
-For the ClickBank postback or any server-side integration, call the
-purchase endpoint directly from your server:
-
-  POST https://aff-massapro.space-z.ai/api/track/purchase
-  Content-Type: application/json
-
-  {
-    "affid": "massa001",
-    "event_type": "purchase",
-    "order_id": "CBRECEIPT123",
-    "revenue": 99,
-    "currency": "USD",
-    "plan_type": "Professional",
-    "customer_email": "john@company.com",
-    "customer_name": "John Smith",
-    "session_id": "sess_xxx",
-    "ft_utm_source": "google",
-    "ft_utm_medium": "cpc",
-    "ft_utm_campaign": "spring_sale",
-    "lt_utm_source": "facebook",
-    "lt_utm_medium": "social",
-    "lt_utm_campaign": "retarget",
-    "page_url": "https://receptionist.massapro.com/all",
-    "funnel_steps": ["landing", "view_pricing", "add_to_cart", "purchase"]
-  }
-
-For server-side calls, you must pass the affid and UTM parameters
-explicitly (since server-side code does not have access to the browser
-cookies). The affid can be retrieved from the ClickBank cvendthru
-parameter, and UTM data can be stored server-side when the initial
-trackCart() call is made (it includes all UTM data).
+IMPORTANT RULES:
+  - "Buy Now" button = AddToCart/add_to_cart, NEVER Purchase/purchase
+  - Purchase/purchase only fires AFTER ClickBank confirms payment
+  - Meta Purchase and GA4 purchase fire on the thank-you page
+  - Affiliate trackPurchase() fires server-side from ClickBank postback
 
 
 ================================================================================
@@ -682,7 +690,7 @@ trackCart() call is made (it includes all UTM data).
 | /api/track/purchase | POST   | Cart, purchase, and funnel step tracking  |
 | /api/track/status   | PUT    | Update lead/referral status               |
 | /api/track/clickbank| POST   | ClickBank Instant Notification handler    |
-|                     |        | (TO BE IMPLEMENTED in Phase 2)            |
+|                     |        | (TO BE IMPLEMENTED — Phase 2)             |
 +---------------------+--------+-------------------------------------------+
 
 All endpoints support CORS (Access-Control-Allow-Origin: *).
@@ -699,7 +707,7 @@ All tracking endpoints are public (no API key required).
     utm_term     (optional) — Last-touch UTM term
     page_url     (optional) — Page URL where click occurred
     event_type   (optional) — "pageview" or "button_click" (default: pageview)
-    event_id     (optional) — Event identifier (e.g., "btn_hero_demo")
+    event_id     (optional) — Event identifier (e.g., "btn_buy_basic")
     session_id   (optional) — Session identifier
   Returns: 1x1 transparent GIF (image/gif)
 
@@ -805,39 +813,45 @@ All tracking endpoints are public (no API key required).
 
 
 ================================================================================
-  DATA FLOW DIAGRAM — MASSAPRO + CLICKBANK
+  DATA FLOW DIAGRAM — FULL FUNNEL
 ================================================================================
 
-  Visitor arrives with ?affid=massa001&utm_source=google&utm_campaign=spring
+  Visitor arrives at:
+    https://receptionist.massapro.com/?affid=massa001&utm_source=google&utm_campaign=spring
     |
     v
   [Tracker JS v3.0] — auto-runs on page load
     |
     +--> Saves cookies: massapro_affiliate (30d), massapro_ft (30d),
     |                     massapro_session (1d), massapro_funnel (30d)
-    |
     +--> Fires GET /api/track/click?affid=massa001&utm_source=google...
-    |    (recorded in Click table, affiliate.totalTraffic incremented)
+    |    (recorded in Click table, affiliate.totalTraffic++)
     |
     v
-  Visitor clicks "Buy Now — Professional Plan" button
+  Visitor clicks "Buy Now — Professional" button
     |
     v
-  [onclick] trackEvent('btn_buy_professional') + trackCart({plan_type:'Professional', cart_value:99})
+  [onclick] fires ALL of the following:
     |
-    +--> trackEvent fires:
-    |    - GET /api/track/event?event=btn_buy_professional&affid=massa001
-    |      (recorded in AffiliateEvent table)
-    |    - POST /api/track/click with event_type='button_click'
-    |      (recorded in Click table)
+    +--> trackEvent('btn_buy_professional')
+    |    - GET /api/track/event?event=btn_buy_professional
+    |    - POST /api/track/click (event_type='button_click')
     |
-    +--> trackCart fires:
+    +--> trackCart({ plan_type: 'Professional', cart_value: 99 })
     |    - Saves "add_to_cart" in funnel cookie
     |    - Fires event pixel: add_to_cart_Professional
-    |    - POST /api/track/purchase with event_type: 'add_to_cart'
-    |      (recorded in PurchaseEvent table, NO commission yet)
+    |    - POST /api/track/purchase (event_type='add_to_cart')
+    |      (recorded in PurchaseEvent table, NO commission)
     |
-    +--> User redirected to ClickBank with cvendthru=massa001
+    +--> fbq('track', 'AddToCart', { value: 99, ... })
+    |    (Meta Pixel — AddToCart event for ad optimization)
+    |
+    +--> gtag('event', 'add_to_cart', { value: 99, ... })
+    |    (GA4 — add_to_cart event for funnel analysis)
+    |
+    +--> Appends &cvendthru=massa001 to ClickBank URL
+    |
+    +--> Browser navigates to ClickBank checkout
     |
     v
   User completes payment on ClickBank
@@ -846,33 +860,32 @@ All tracking endpoints are public (no API key required).
   [ClickBank Instant Notification] — server-to-server POST
     |
     v
-  /api/track/clickbank endpoint (Phase 2)
+  /api/track/clickbank (Phase 2 — to be built)
     |
     +--> Verifies cbpop hash
-    +--> Extracts affid from cvendthru
-    +--> Maps cbitem to plan_type
+    +--> Extracts affid=massa001 from cvendthru
+    +--> Maps cbitem to plan_type='Professional'
     |
     v
   Calls /api/track/purchase with event_type: 'purchase'
     |
     +--> Records PurchaseEvent with full UTM attribution
     +--> Commission engine runs:
-    |    - Finds/creates Referral with status "Paying Customer"
-    |    - Creates CommissionLedger entry ($100 signup commission)
-    |    - Updates affiliate.totalConversions, totalEarnings, approvedBalance
+    |    - Finds/creates Referral (status: "Paying Customer")
+    |    - Creates CommissionLedger entry ($100 signup)
+    |    - Updates affiliate totalConversions, totalEarnings, approvedBalance
+    |
+    v
+  User returns to receptionist.massapro.com/thank-you
+    |
+    +--> fbq('track', 'Purchase', { value: 99, ... })
+    |    (Meta Pixel — Purchase event for conversion tracking)
+    |
+    +--> gtag('event', 'purchase', { value: 99, ... })
+    |    (GA4 — purchase event for conversion tracking)
     |
     v
   [Dashboard] Affiliate sees conversion, commission, and earnings updated
-
-
-  INTERIM (before ClickBank postback is set up):
-    |
-    v
-  Admin manually updates referral to "Paying Customer"
-    via /api/track/status or the admin dashboard
-    |
-    +--> Commission engine triggers manually
-    +--> Affiliate gets credited
 
 
 ================================================================================
@@ -885,31 +898,31 @@ FIRST-TOUCH (massapro_ft cookie):
   - Captured ONCE when the visitor first arrives with ?affid=XXX
   - Never overwritten, even if the visitor returns via a different UTM source
   - Stored in the Referral and PurchaseEvent records as ft_utm_*
-  - Used to answer: "Which campaign originally brought this customer?"
+  - Answers: "Which campaign originally brought this customer?"
 
 LAST-TOUCH (massapro_affiliate cookie):
   - Updated every time the visitor arrives with new UTM parameters
   - Stored in the Click records and in Referral/PurchaseEvent as lt_utm_*
-  - Used to answer: "Which campaign drove the most recent conversion?"
+  - Answers: "Which campaign drove the most recent conversion?"
 
 EXAMPLE:
-  Day 1:  Visitor clicks Google ad → ?affid=massa001&utm_source=google&utm_campaign=spring_sale
+  Day 1:  ?affid=massa001&utm_source=google&utm_campaign=spring_sale
           First-touch: google / spring_sale
           Last-touch:  google / spring_sale
 
-  Day 15: Visitor clicks Facebook retargeting ad → ?affid=massa001&utm_source=facebook&utm_campaign=retarget
+  Day 15: ?affid=massa001&utm_source=facebook&utm_campaign=retarget
           First-touch: google / spring_sale  (UNCHANGED)
           Last-touch:  facebook / retarget    (UPDATED)
 
-  Day 20: Visitor clicks "Buy Now" → trackCart() fires with both UTMs
+  Day 20: User clicks "Buy Now" → trackCart() fires with both UTMs
           PurchaseEvent (add_to_cart) records:
             ft_utm_source:   google
             ft_utm_campaign: spring_sale
             lt_utm_source:   facebook
             lt_utm_campaign: retarget
 
-  Day 20: ClickBank confirms payment → trackPurchase() fires server-side
-          PurchaseEvent (purchase) records same UTM attribution
+  Day 20: ClickBank confirms → trackPurchase() server-side
+          Same UTM attribution carried forward
           Commission awarded to affiliate massa001
 
 
@@ -918,21 +931,21 @@ EXAMPLE:
 ================================================================================
 
 SIGNUP COMMISSION (one-time):
-  Triggered when a referral status becomes "Paying Customer", either:
+  Triggered when a referral status becomes "Paying Customer":
     - Via trackLead() with initial_status: 'Paying Customer'
-    - Via trackPurchase() with a valid affid and customer_email
-      (fired server-side from ClickBank postback)
+    - Via trackPurchase() with valid affid + customer_email
+      (server-side from ClickBank postback)
     - Via PUT /api/track/status with new_status: 'Paying Customer'
-      (manual admin update or automated workflow)
 
   Amounts:
     Standard affiliate:  $100
     Premium affiliate:   $150
     Custom affiliate:    Per-affiliate override (customSignupComm field)
 
-  IMPORTANT: trackCart() does NOT trigger commissions. Only trackPurchase()
-  or a status update to "Paying Customer" triggers the commission engine.
-  This ensures commissions are only awarded for confirmed payments.
+  IMPORTANT: trackCart() does NOT trigger commissions. Only
+  trackPurchase() or a status update to "Paying Customer" triggers
+  the commission engine. This ensures commissions are only awarded
+  for confirmed payments.
 
 RECURRING COMMISSION (monthly, up to 12 months):
   Triggered when months_active is incremented for a "Paying Customer"
@@ -947,7 +960,7 @@ RECURRING COMMISSION (monthly, up to 12 months):
     customEnterprise, customProfess, customBasic fields
 
 COMMISSION LEDGER:
-  Every commission is recorded in the CommissionLedger table with:
+  Every commission is recorded in the CommissionLedger table:
     - type: "signup", "recurring", or "adjustment"
     - amount: dollar amount
     - description: human-readable note
@@ -955,9 +968,77 @@ COMMISSION LEDGER:
     - referralId: link to the Referral record
 
 AFFILIATE BALANCE TRACKING:
-  - totalEarnings: sum of all commissions ever earned
+  - totalEarnings:   sum of all commissions ever earned
   - approvedBalance: commissions available for payout
-  - paidBalance: total commissions already paid out
+  - paidBalance:     total commissions already paid out
+
+
+================================================================================
+  CLICKBANK INTEGRATION — IMPLEMENTATION ROADMAP
+================================================================================
+
+PHASE 1 — IMPLEMENT NOW (client-side tracking on receptionist.massapro.com):
+  - Add tracker script to all pages
+  - Add trackEvent() to all CTA buttons
+  - Add trackCart() + fbq AddToCart + gtag add_to_cart to "Buy Now" buttons
+  - Add cvendthru=affid to ClickBank redirect URLs
+  - Add trackLead() to lead forms
+  - All data flows into the dashboard: clicks, button events, cart events, leads
+  - Affiliates see traffic, button clicks, and cart activity in real-time
+  - Commissions are NOT yet automated (no purchase confirmation from ClickBank)
+
+PHASE 2 — CLICKBANK POSTBACK (implement after ClickBank account setup):
+  - Create /api/track/clickbank endpoint on the dashboard
+  - Configure ClickBank Instant Notification URL
+  - Implement cbpop hash verification
+  - Map ClickBank item numbers to MassaPro plan types
+  - Extract MassaPro affid from cvendthru
+  - Auto-fire trackPurchase() on confirmed ClickBank sales
+  - Commissions auto-awarded when purchase is confirmed
+  - Handle refunds (mark referrals as "Churned")
+  - Create thank-you page on receptionist.massapro.com
+  - Fire fbq Purchase + gtag purchase on thank-you page
+
+INTERIM (between Phase 1 and Phase 2):
+  - When a ClickBank sale is confirmed, admin manually updates referral
+    status to "Paying Customer" via the admin dashboard or /api/track/status
+  - This triggers the commission manually
+  - Once Phase 2 is complete, this becomes fully automated
+
+
+================================================================================
+  SERVER-SIDE PURCHASE TRACKING (ADVANCED)
+================================================================================
+
+For the ClickBank postback or any server-side integration, call the
+purchase endpoint directly from your server:
+
+  POST https://aff-massapro.space-z.ai/api/track/purchase
+  Content-Type: application/json
+
+  {
+    "affid": "massa001",
+    "event_type": "purchase",
+    "order_id": "CBRECEIPT123",
+    "revenue": 99,
+    "currency": "USD",
+    "plan_type": "Professional",
+    "customer_email": "john@company.com",
+    "customer_name": "John Smith",
+    "session_id": "sess_xxx",
+    "ft_utm_source": "google",
+    "ft_utm_medium": "cpc",
+    "ft_utm_campaign": "spring_sale",
+    "lt_utm_source": "facebook",
+    "lt_utm_medium": "social",
+    "lt_utm_campaign": "retarget",
+    "page_url": "https://receptionist.massapro.com/all",
+    "funnel_steps": ["landing", "view_pricing", "add_to_cart", "purchase"]
+  }
+
+For server-side calls, pass affid and UTM parameters explicitly (server
+code does not have access to browser cookies). The affid comes from the
+ClickBank cvendthru parameter.
 
 
 ================================================================================
@@ -965,66 +1046,54 @@ AFFILIATE BALANCE TRACKING:
 ================================================================================
 
 1. TEST CLICK TRACKING:
-   Visit your site with an affiliate link:
+   Visit with an affiliate link:
      https://receptionist.massapro.com/?affid=massa001&utm_source=test
-
-   Check browser console for:
-     [MassaPro] Click tracked successfully
-
-   Verify in the dashboard:
-     - Admin panel → Clicks tab should show the new click
-     - Affiliate portal should show updated traffic count
+   Check DevTools console for click tracking request.
+   Verify in dashboard: Admin → Clicks tab shows the new click.
 
 2. TEST BUTTON EVENT TRACKING:
-   Click any CTA button with trackEvent() attached.
-   Check browser console for network requests to /api/track/event and
+   Click a CTA button with trackEvent().
+   Check DevTools → Network for requests to /api/track/event and
    /api/track/click.
 
 3. TEST "BUY NOW" CART TRACKING:
-   Click a "Buy Now" button that has both trackEvent() and trackCart().
-   Check browser console for:
+   Click a "Buy Now" button.
+   Check DevTools console for:
      [MassaPro] Cart event tracked: { success: true, ... }
-   Verify in the dashboard:
-     - Admin panel → PurchaseEvents should show the add_to_cart event
-     - The event should include the plan_type and cart_value
-     - NO commission should be created (cart events don't trigger commissions)
+   Verify: PurchaseEvents table shows the add_to_cart event.
+   Verify: NO commission was created (cart does not trigger commissions).
+   Verify: ClickBank redirect URL includes &cvendthru=massa001.
 
-4. TEST CVENDTHRU PARAMETER:
-   Click a "Buy Now" button. Check the ClickBank redirect URL.
-   It should include &cvendthru=massa001 (or whichever affid is in the
-   cookie). If it doesn't, the onclick handler may not be modifying the
-   href correctly.
+4. TEST META ADDTOCART:
+   Click a "Buy Now" button.
+   Check Meta Pixel Helper browser extension — should show AddToCart
+   event (NOT Purchase).
 
-5. TEST LEAD TRACKING:
-   Submit a lead form on your site.
-   Check browser console for:
-     [MassaPro] Lead tracked: { success: true, ... }
+5. TEST GA4 add_to_cart:
+   Click a "Buy Now" button.
+   Check GA4 DebugView — should show add_to_cart event (NOT purchase).
 
-6. TEST PURCHASE TRACKING (server-side):
-   After ClickBank postback is configured, make a test purchase.
-   Check the dashboard:
-     - Admin panel → Referrals should show the new "Paying Customer"
-     - Commission ledger should show the signup commission
-     - Affiliate earnings should be updated
+6. TEST LEAD TRACKING:
+   Submit a lead form.
+   Check console: [MassaPro] Lead tracked: { success: true, ... }
 
-7. MANUAL COMMISSION TEST (before ClickBank postback):
-   Use the /api/track/status endpoint to manually update a lead:
-     PUT https://aff-massapro.space-z.ai/api/track/status
-     {
-       "affid": "massa001",
-       "lead_email": "test@example.com",
-       "new_status": "Paying Customer",
-       "plan_type": "Professional"
-     }
-   Verify the commission was created in the dashboard.
+7. TEST PURCHASE TRACKING (after ClickBank postback):
+   Make a test purchase via ClickBank.
+   Verify dashboard shows: Referral with "Paying Customer" status,
+   Commission ledger with signup commission, Affiliate earnings updated.
 
-8. VERIFY COOKIES:
-   Open browser DevTools → Application → Cookies:
-     - massapro_affiliate should contain the affid and UTM data
-     - massapro_ft should contain first-touch UTM data
-     - massapro_session should contain a session ID
-     - massapro_funnel should contain ["landing", "add_to_cart"] after
-       clicking a "Buy Now" button
+8. MANUAL COMMISSION TEST (before ClickBank postback):
+   PUT https://aff-massapro.space-z.ai/api/track/status
+   { "affid": "massa001", "lead_email": "test@example.com",
+     "new_status": "Paying Customer", "plan_type": "Professional" }
+   Verify the commission was created.
+
+9. VERIFY COOKIES:
+   DevTools → Application → Cookies → receptionist.massapro.com:
+     - massapro_affiliate: contains affid + UTM data
+     - massapro_ft: first-touch UTM data
+     - massapro_session: session ID
+     - massapro_funnel: ["landing", "add_to_cart"] after Buy Now click
 
 
 ================================================================================
@@ -1032,123 +1101,156 @@ AFFILIATE BALANCE TRACKING:
 ================================================================================
 
 PROBLEM: trackEvent() calls seem to do nothing
-  CAUSE:  The tracker script was not loaded or config() was not called.
-  FIX:    Make sure both <script> tags are present and the dashboardUrl
-          is set to 'https://aff-massapro.space-z.ai'.
+  CAUSE:  Tracker script not loaded or config() not called.
+  FIX:    Ensure both <script> tags are present and dashboardUrl is
+          set to 'https://aff-massapro.space-z.ai'.
 
-PROBLEM: No affiliate data is being tracked
-  CAUSE:  Visitor did not arrive via an ?affid= link, so no cookie was set.
-  FIX:    Always test with an affiliate link that includes ?affid=XXX.
+PROBLEM: No affiliate data being tracked
+  CAUSE:  Visitor did not arrive via ?affid= link.
+  FIX:    Always test with an affiliate link: ?affid=XXX
 
-PROBLEM: Leads are not being attributed to affiliates
-  CAUSE:  The affiliate cookie expired (30-day window) or was never set.
-  FIX:    Ensure visitors arrive via affiliate links. Check that the
-          massapro_affiliate cookie exists in DevTools.
+PROBLEM: Leads not attributed to affiliates
+  CAUSE:  Affiliate cookie expired (30 days) or never set.
+  FIX:    Ensure visitors arrive via affiliate links. Check cookie in
+          DevTools.
 
 PROBLEM: "Buy Now" click doesn't pass affid to ClickBank
-  CAUSE:  The onclick handler isn't modifying the href before the
-          redirect, or the affiliate cookie doesn't exist.
-  FIX:    Check that the onclick runs before the href redirect. Make
-          sure MassaProAffiliate.getAttribution() returns a valid affid.
+  CAUSE:  onclick handler not modifying href before redirect, or
+          affiliate cookie doesn't exist.
+  FIX:    Check that onclick runs before the href redirect. Verify
+          MassaProAffiliate.getAttribution() returns a valid affid.
           Test with a ?affid=XXX link first.
 
-PROBLEM: Cart events show but no commissions are created
-  CAUSE:  This is CORRECT behavior. trackCart() does NOT trigger
-          commissions. Only trackPurchase() (via ClickBank postback)
-          or a status update to "Paying Customer" triggers commissions.
-  FIX:    No fix needed. Implement the ClickBank postback (Phase 2) or
+PROBLEM: Cart events show but no commissions created
+  CAUSE:  This is CORRECT. trackCart() does NOT trigger commissions.
+          Only trackPurchase() (ClickBank postback) or a status update
+          triggers commissions.
+  FIX:    No fix needed. Implement ClickBank postback (Phase 2) or
           manually update referral status via /api/track/status.
 
-PROBLEM: Purchase events don't create commissions (after ClickBank setup)
-  CAUSE:  (a) The affid was not passed via cvendthru to ClickBank
-          (b) The affid in the postback is invalid or affiliate is inactive
-          (c) customer_email was not provided (needed for referral matching)
-  FIX:    Ensure the cvendthru parameter is appended to ClickBank URLs,
-          the affid is valid, and customer_email is included.
+PROBLEM: Meta Pixel shows Purchase on "Buy Now" click
+  CAUSE:  Wrong Meta event fired — should be AddToCart, not Purchase.
+  FIX:    Change fbq('track', 'Purchase', ...) to
+          fbq('track', 'AddToCart', ...) on "Buy Now" buttons.
+
+PROBLEM: GA4 shows purchase event on "Buy Now" click
+  CAUSE:  Wrong GA4 event fired — should be add_to_cart, not purchase.
+  FIX:    Change gtag('event', 'purchase', ...) to
+          gtag('event', 'add_to_cart', ...) on "Buy Now" buttons.
 
 PROBLEM: Console shows 404 for /api/track/event
-  CAUSE:  This was a bug in earlier deployments — the endpoint was missing.
-  FIX:    This has been fixed. The endpoint now exists. If you still see
-          404s, clear your browser cache and reload the page.
+  CAUSE:  Old bug — endpoint was missing in earlier deployment.
+  FIX:    This is fixed. Clear browser cache and reload. If still
+          seeing 404s, add cache-buster to tracker URL:
+          ?v=3
 
-PROBLEM: Old tracker JS is being served (cache issue)
-  CAUSE:  Browser or CDN is caching the old version of the tracker JS.
-  FIX:    Hard-refresh the page (Ctrl+Shift+R) or add a cache-buster:
+PROBLEM: Old tracker JS being served (cache issue)
+  CAUSE:  Browser/CDN caching old version.
+  FIX:    Hard-refresh (Ctrl+Shift+R) or add cache-buster:
           src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js?v=3"
+
+PROBLEM: Purchase events don't create commissions (after ClickBank setup)
+  CAUSE:  (a) cvendthru missing from ClickBank URL
+          (b) affid invalid or affiliate inactive
+          (c) customer_email not provided
+  FIX:    Ensure cvendthru is appended, affid is valid, and
+          customer_email is included in the purchase payload.
 
 
 ================================================================================
   MINIMUM CODE FOR COMPLETE INTEGRATION
 ================================================================================
 
-Below is the MINIMUM code you need to add to receptionist.massapro.com
-for full affiliate tracking (clicks, buttons, leads, cart events).
-Purchase tracking requires the ClickBank postback (Phase 2).
+Below is ALL the code you need to add to receptionist.massapro.com:
 
-<!-- Step 1: Load the tracker (add to every page, before </body>) -->
-<script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
-<script>
-  MassaProAffiliate.config({
-    dashboardUrl: 'https://aff-massapro.space-z.ai'
-  });
-</script>
-
-<!-- Step 2: Non-purchasing CTA buttons (use trackEvent only) -->
-<button onclick="MassaProAffiliate.trackEvent('btn_hero_demo')">
-  Book a Demo
-</button>
-<button onclick="MassaProAffiliate.trackEvent('btn_get_now')">
-  Get Started Now
-</button>
-
-<!-- Step 3: "Buy Now" buttons (trackEvent + trackCart + cvendthru for ClickBank) -->
-<a href="https://aireceptio.pay.clickbank.net/?plan=basic"
-   onclick="var aff = MassaProAffiliate.getAttribution();
-            if (aff && aff.affid) {
-              this.href = this.href + '&cvendthru=' + aff.affid;
-            }
-            MassaProAffiliate.trackEvent('btn_buy_basic');
-            MassaProAffiliate.trackCart({ plan_type: 'Basic', quantity: 1, cart_value: 29 });">
-  Buy Now — Basic
-</a>
-
-<a href="https://aireceptio.pay.clickbank.net/?plan=professional"
-   onclick="var aff = MassaProAffiliate.getAttribution();
-            if (aff && aff.affid) {
-              this.href = this.href + '&cvendthru=' + aff.affid;
-            }
-            MassaProAffiliate.trackEvent('btn_buy_professional');
-            MassaProAffiliate.trackCart({ plan_type: 'Professional', quantity: 1, cart_value: 99 });">
-  Buy Now — Professional
-</a>
-
-<a href="https://aireceptio.pay.clickbank.net/?plan=enterprise"
-   onclick="var aff = MassaProAffiliate.getAttribution();
-            if (aff && aff.affid) {
-              this.href = this.href + '&cvendthru=' + aff.affid;
-            }
-            MassaProAffiliate.trackEvent('btn_buy_enterprise');
-            MassaProAffiliate.trackCart({ plan_type: 'Enterprise', quantity: 1, cart_value: 199 });">
-  Buy Now — Enterprise
-</a>
-
-<!-- Step 4: Lead form submission (in your form handler JS) -->
-<script>
-  function onLeadFormSubmit(formData) {
-    MassaProAffiliate.trackLead({
-      lead_name: formData.name,
-      lead_email: formData.email,
-      lead_phone: formData.phone,
-      lead_company: formData.company,
-      plan_type: formData.plan_type || 'Basic',
-      initial_status: 'Lead'
+  <!-- ============================================ -->
+  <!-- STEP 1: Load the tracker (on EVERY page)     -->
+  <!-- ============================================ -->
+  <script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
+  <script>
+    MassaProAffiliate.config({
+      dashboardUrl: 'https://aff-massapro.space-z.ai'
     });
-  }
-</script>
+  </script>
 
-<!-- Step 5: Purchase confirmation (handled server-side via ClickBank postback) -->
-<!-- See "CLICKBANK INTEGRATION — DETAILED IMPLEMENTATION ROADMAP" above -->
-<!-- Until ClickBank postback is set up, manually update status via admin dashboard -->
+  <!-- ============================================ -->
+  <!-- STEP 2: Non-purchasing CTA buttons            -->
+  <!-- ============================================ -->
+  <button onclick="MassaProAffiliate.trackEvent('btn_hero_demo')">
+    Book a Demo
+  </button>
+  <button onclick="MassaProAffiliate.trackEvent('btn_get_now')">
+    Get Started Now
+  </button>
+
+  <!-- ============================================ -->
+  <!-- STEP 3: "Buy Now" buttons                     -->
+  <!--   Fires: trackEvent + trackCart + fbq AddToCart + gtag add_to_cart -->
+  <!--   Appends cvendthru=affid to ClickBank URL    -->
+  <!-- ============================================ -->
+  <a href="https://aireceptio.pay.clickbank.net/?plan=basic"
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_basic');MassaProAffiliate.trackCart({plan_type:'Basic',quantity:1,cart_value:29});fbq('track','AddToCart',{value:29,currency:'USD',content_name:'MassaPro Basic Plan'});gtag('event','add_to_cart',{currency:'USD',value:29,items:[{item_id:'basic',item_name:'MassaPro Basic Plan',price:29,quantity:1}]});">
+    Buy Now — Basic
+  </a>
+
+  <a href="https://aireceptio.pay.clickbank.net/?plan=professional"
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_professional');MassaProAffiliate.trackCart({plan_type:'Professional',quantity:1,cart_value:99});fbq('track','AddToCart',{value:99,currency:'USD',content_name:'MassaPro Professional Plan'});gtag('event','add_to_cart',{currency:'USD',value:99,items:[{item_id:'professional',item_name:'MassaPro Professional Plan',price:99,quantity:1}]});">
+    Buy Now — Professional
+  </a>
+
+  <a href="https://aireceptio.pay.clickbank.net/?plan=enterprise"
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_enterprise');MassaProAffiliate.trackCart({plan_type:'Enterprise',quantity:1,cart_value:199});fbq('track','AddToCart',{value:199,currency:'USD',content_name:'MassaPro Enterprise Plan'});gtag('event','add_to_cart',{currency:'USD',value:199,items:[{item_id:'enterprise',item_name:'MassaPro Enterprise Plan',price:199,quantity:1}]});">
+    Buy Now — Enterprise
+  </a>
+
+  <!-- ============================================ -->
+  <!-- STEP 4: Lead form submission handler           -->
+  <!-- ============================================ -->
+  <script>
+    function onLeadFormSubmit(formData) {
+      MassaProAffiliate.trackLead({
+        lead_name: formData.name,
+        lead_email: formData.email,
+        lead_phone: formData.phone,
+        lead_company: formData.company,
+        plan_type: formData.plan_type || 'Basic',
+        initial_status: 'Lead'
+      });
+    }
+  </script>
+
+  <!-- ============================================ -->
+  <!-- STEP 5: Thank-you page (after ClickBank)      -->
+  <!--   Fires: fbq Purchase + gtag purchase         -->
+  <!--   (only on the thank-you page, NOT on Buy Now) -->
+  <!-- ============================================ -->
+  <script>
+    // This code goes on /thank-you page ONLY
+    // Pass order details from ClickBank via URL params or session
+    fbq('track', 'Purchase', {
+      value: orderValue,
+      currency: 'USD',
+      content_name: planName
+    });
+    gtag('event', 'purchase', {
+      transaction_id: orderId,
+      value: orderValue,
+      currency: 'USD',
+      items: [{
+        item_id: planId,
+        item_name: planName,
+        price: orderValue,
+        quantity: 1
+      }]
+    });
+  </script>
+
+  <!-- ============================================ -->
+  <!-- STEP 6: Purchase confirmation                 -->
+  <!--   (handled server-side via ClickBank postback) -->
+  <!--   See "CLICKBANK INTEGRATION ROADMAP" above    -->
+  <!--   Until then, manually update via admin panel  -->
+  <!-- ============================================ -->
 
 
 ================================================================================
