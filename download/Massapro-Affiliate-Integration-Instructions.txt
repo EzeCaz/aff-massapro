@@ -1,7 +1,7 @@
 ================================================================================
   MASSAPRO AFFILIATE DASHBOARD — COMPLETE INTEGRATION INSTRUCTIONS
 ================================================================================
-  Version:        4.0
+  Version:        4.1
   Last Updated:   2026-05-20
   Dashboard:      https://aff-massapro.space-z.ai
   Website:        https://receptionist.massapro.com
@@ -114,9 +114,9 @@ QUESTION 5: SHOULD BUTTON/PURCHASE EVENTS APPEAR IN THE INSTRUCTIONS?
     - MassaProAffiliate.trackEvent('btn_get_now')
 
   ADD-TO-CART EVENTS (fire on "Buy Now" buttons — NOT purchase):
-    - MassaProAffiliate.trackCart({ plan_type: 'Basic', cart_value: 29 })
-    - MassaProAffiliate.trackCart({ plan_type: 'Professional', cart_value: 99 })
-    - MassaProAffiliate.trackCart({ plan_type: 'Enterprise', cart_value: 199 })
+    - MassaProAffiliate.trackCart({ plan_type: 'Basic', cart_value: 500 })
+    - MassaProAffiliate.trackCart({ plan_type: 'Professional', cart_value: 1200 })
+    - MassaProAffiliate.trackCart({ plan_type: 'Enterprise', cart_value: 2000 })
 
   META PIXEL (add_to_cart, NOT Purchase, on "Buy Now" buttons):
     - fbq('track', 'AddToCart', { ... })   ← CORRECT for "Buy Now"
@@ -277,21 +277,21 @@ HERE IS THE COMPLETE CODE FOR ALL THREE "BUY NOW" BUTTONS:
          this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
        }
        MassaProAffiliate.trackEvent('btn_buy_basic');
-       MassaProAffiliate.trackCart({ plan_type: 'Basic', quantity: 1, cart_value: 29 });
+       MassaProAffiliate.trackCart({ plan_type: 'Basic', quantity: 1, cart_value: 500 });
        fbq('track', 'AddToCart', {
-         value: 29,
+         value: 500,
          currency: 'USD',
          content_name: 'MassaPro Basic Plan',
          content_type: 'product'
        });
        gtag('event', 'add_to_cart', {
          currency: 'USD',
-         value: 29,
+         value: 500,
          items: [{
            item_id: 'basic',
            item_name: 'MassaPro Basic Plan',
            item_category: 'Subscription',
-           price: 29,
+           price: 500,
            quantity: 1
          }]
        });
@@ -309,21 +309,21 @@ HERE IS THE COMPLETE CODE FOR ALL THREE "BUY NOW" BUTTONS:
          this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
        }
        MassaProAffiliate.trackEvent('btn_buy_professional');
-       MassaProAffiliate.trackCart({ plan_type: 'Professional', quantity: 1, cart_value: 99 });
+       MassaProAffiliate.trackCart({ plan_type: 'Professional', quantity: 1, cart_value: 1200 });
        fbq('track', 'AddToCart', {
-         value: 99,
+         value: 1200,
          currency: 'USD',
          content_name: 'MassaPro Professional Plan',
          content_type: 'product'
        });
        gtag('event', 'add_to_cart', {
          currency: 'USD',
-         value: 99,
+         value: 1200,
          items: [{
            item_id: 'professional',
            item_name: 'MassaPro Professional Plan',
            item_category: 'Subscription',
-           price: 99,
+           price: 1200,
            quantity: 1
          }]
        });
@@ -341,21 +341,21 @@ HERE IS THE COMPLETE CODE FOR ALL THREE "BUY NOW" BUTTONS:
          this.href = this.href + '&cvendthru=' + encodeURIComponent(aff.affid);
        }
        MassaProAffiliate.trackEvent('btn_buy_enterprise');
-       MassaProAffiliate.trackCart({ plan_type: 'Enterprise', quantity: 1, cart_value: 199 });
+       MassaProAffiliate.trackCart({ plan_type: 'Enterprise', quantity: 1, cart_value: 2000 });
        fbq('track', 'AddToCart', {
-         value: 199,
+         value: 2000,
          currency: 'USD',
          content_name: 'MassaPro Enterprise Plan',
          content_type: 'product'
        });
        gtag('event', 'add_to_cart', {
          currency: 'USD',
-         value: 199,
+         value: 2000,
          items: [{
            item_id: 'enterprise',
            item_name: 'MassaPro Enterprise Plan',
            item_category: 'Subscription',
-           price: 199,
+           price: 2000,
            quantity: 1
          }]
        });
@@ -371,7 +371,7 @@ WHAT EACH TRACKING CALL DOES:
     - Fires POST /api/track/click with event_type='button_click'
       → Recorded in Click table
 
-  trackCart({ plan_type: 'Basic', cart_value: 29 }):
+  trackCart({ plan_type: 'Basic', cart_value: 500 }):
     - Saves "add_to_cart" as a funnel step in the cookie
     - Fires event pixel: add_to_cart_Basic
     - Fires POST /api/track/purchase with event_type: 'add_to_cart'
@@ -394,10 +394,10 @@ WHAT EACH TRACKING CALL DOES:
     - This is how we link a ClickBank sale back to the MassaPro affiliate
     - Example: &cvendthru=massa001
 
-CART VALUES — Update these to match your actual ClickBank prices:
-  - Basic:        $29   (update to actual ClickBank price)
-  - Professional: $99   (update to actual ClickBank price)
-  - Enterprise:   $199  (update to actual ClickBank price)
+CART VALUES (actual production prices):
+  - Basic:        $500
+  - Professional: $1,200
+  - Enterprise:   $2,000
 
 
 ---------------------------------------------------------------
@@ -492,7 +492,7 @@ HOW THE CLICKBANK POSTBACK WORKS:
     cblname      = "Smith"            (Buyer last name)
     cbemail      = "john@example.com" (Buyer email)
     cname        = "Product Name"     (Product name)
-    cprice       = "99.00"            (Price paid)
+    cprice       = "1200.00"           (Price paid — example for Professional)
     ccur         = "USD"              (Currency)
     ctype        = "SALE"             (Transaction type)
     cvendthru    = "massa001"         (Vendor through-parameter — THIS IS
@@ -837,16 +837,16 @@ All tracking endpoints are public (no API key required).
     |    - GET /api/track/event?event=btn_buy_professional
     |    - POST /api/track/click (event_type='button_click')
     |
-    +--> trackCart({ plan_type: 'Professional', cart_value: 99 })
+    +--> trackCart({ plan_type: 'Professional', cart_value: 1200 })
     |    - Saves "add_to_cart" in funnel cookie
     |    - Fires event pixel: add_to_cart_Professional
     |    - POST /api/track/purchase (event_type='add_to_cart')
     |      (recorded in PurchaseEvent table, NO commission)
     |
-    +--> fbq('track', 'AddToCart', { value: 99, ... })
+    +--> fbq('track', 'AddToCart', { value: 1200, ... })
     |    (Meta Pixel — AddToCart event for ad optimization)
     |
-    +--> gtag('event', 'add_to_cart', { value: 99, ... })
+    +--> gtag('event', 'add_to_cart', { value: 1200, ... })
     |    (GA4 — add_to_cart event for funnel analysis)
     |
     +--> Appends &cvendthru=massa001 to ClickBank URL
@@ -878,10 +878,10 @@ All tracking endpoints are public (no API key required).
     v
   User returns to receptionist.massapro.com/thank-you
     |
-    +--> fbq('track', 'Purchase', { value: 99, ... })
+    +--> fbq('track', 'Purchase', { value: 1200, ... })
     |    (Meta Pixel — Purchase event for conversion tracking)
     |
-    +--> gtag('event', 'purchase', { value: 99, ... })
+    +--> gtag('event', 'purchase', { value: 1200, ... })
     |    (GA4 — purchase event for conversion tracking)
     |
     v
@@ -1020,7 +1020,7 @@ purchase endpoint directly from your server:
     "affid": "massa001",
     "event_type": "purchase",
     "order_id": "CBRECEIPT123",
-    "revenue": 99,
+    "revenue": 1200,
     "currency": "USD",
     "plan_type": "Professional",
     "customer_email": "john@company.com",
@@ -1189,17 +1189,17 @@ Below is ALL the code you need to add to receptionist.massapro.com:
   <!--   Appends cvendthru=affid to ClickBank URL    -->
   <!-- ============================================ -->
   <a href="https://aireceptio.pay.clickbank.net/?plan=basic"
-     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_basic');MassaProAffiliate.trackCart({plan_type:'Basic',quantity:1,cart_value:29});fbq('track','AddToCart',{value:29,currency:'USD',content_name:'MassaPro Basic Plan'});gtag('event','add_to_cart',{currency:'USD',value:29,items:[{item_id:'basic',item_name:'MassaPro Basic Plan',price:29,quantity:1}]});">
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_basic');MassaProAffiliate.trackCart({plan_type:'Basic',quantity:1,cart_value:500});fbq('track','AddToCart',{value:500,currency:'USD',content_name:'MassaPro Basic Plan'});gtag('event','add_to_cart',{currency:'USD',value:500,items:[{item_id:'basic',item_name:'MassaPro Basic Plan',price:500,quantity:1}]});">
     Buy Now — Basic
   </a>
 
   <a href="https://aireceptio.pay.clickbank.net/?plan=professional"
-     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_professional');MassaProAffiliate.trackCart({plan_type:'Professional',quantity:1,cart_value:99});fbq('track','AddToCart',{value:99,currency:'USD',content_name:'MassaPro Professional Plan'});gtag('event','add_to_cart',{currency:'USD',value:99,items:[{item_id:'professional',item_name:'MassaPro Professional Plan',price:99,quantity:1}]});">
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_professional');MassaProAffiliate.trackCart({plan_type:'Professional',quantity:1,cart_value:1200});fbq('track','AddToCart',{value:1200,currency:'USD',content_name:'MassaPro Professional Plan'});gtag('event','add_to_cart',{currency:'USD',value:1200,items:[{item_id:'professional',item_name:'MassaPro Professional Plan',price:1200,quantity:1}]});">
     Buy Now — Professional
   </a>
 
   <a href="https://aireceptio.pay.clickbank.net/?plan=enterprise"
-     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_enterprise');MassaProAffiliate.trackCart({plan_type:'Enterprise',quantity:1,cart_value:199});fbq('track','AddToCart',{value:199,currency:'USD',content_name:'MassaPro Enterprise Plan'});gtag('event','add_to_cart',{currency:'USD',value:199,items:[{item_id:'enterprise',item_name:'MassaPro Enterprise Plan',price:199,quantity:1}]});">
+     onclick="var aff=MassaProAffiliate.getAttribution();if(aff&&aff.affid){this.href+='&cvendthru='+encodeURIComponent(aff.affid);}MassaProAffiliate.trackEvent('btn_buy_enterprise');MassaProAffiliate.trackCart({plan_type:'Enterprise',quantity:1,cart_value:2000});fbq('track','AddToCart',{value:2000,currency:'USD',content_name:'MassaPro Enterprise Plan'});gtag('event','add_to_cart',{currency:'USD',value:2000,items:[{item_id:'enterprise',item_name:'MassaPro Enterprise Plan',price:2000,quantity:1}]});">
     Buy Now — Enterprise
   </a>
 
