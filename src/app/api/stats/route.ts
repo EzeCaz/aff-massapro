@@ -225,6 +225,46 @@ async function getAdminStats() {
       where: { createdAt: { gte: subDays(new Date(), 14), lt: subDays(new Date(), 7) } },
     })
 
+    // Lead form metrics
+    // Lead form opens: clicks with eventId = 'lead_form_open' (tracked when form is displayed)
+    const leadFormOpens = await db.click.count({
+      where: {
+        createdAt: { gte: thirtyDaysAgo },
+        eventType: 'button_click',
+        eventId: 'lead_form_open',
+      },
+    })
+
+    // Also count from AffiliateEvent table for lead_form_open events
+    const leadFormOpenEvents = await db.affiliateEvent.count({
+      where: {
+        eventName: 'lead_form_open',
+        createdAt: { gte: thirtyDaysAgo },
+      },
+    })
+    const totalLeadFormOpens = leadFormOpens + leadFormOpenEvents
+
+    // Click-to-lead-form buttons: CTA button clicks that lead to the lead form
+    // These are the hero demo, CTA signup, and nav contact buttons
+    const leadFormCtaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
+    const leadFormCtaClicks = await db.click.count({
+      where: {
+        createdAt: { gte: thirtyDaysAgo },
+        eventType: 'button_click',
+        eventId: { in: leadFormCtaIds },
+      },
+    })
+
+    // Lead form submission rate (opens → submissions)
+    const leadFormSubmitRate = totalLeadFormOpens > 0
+      ? Math.round((totalReferrals / totalLeadFormOpens) * 100)
+      : 0
+
+    // CTA to lead form rate (CTA clicks → form opens)
+    const ctaToFormRate = leadFormCtaClicks > 0 && totalLeadFormOpens > 0
+      ? Math.round((totalLeadFormOpens / leadFormCtaClicks) * 100)
+      : 0
+
     return NextResponse.json({
       totalTraffic,
       uniqueVisitors: uniqueVisitorCount,
@@ -238,6 +278,10 @@ async function getAdminStats() {
       eventBreakdown,
       trafficSources,
       trafficByAffid,
+      leadFormOpens: totalLeadFormOpens,
+      leadFormCtaClicks,
+      leadFormSubmitRate,
+      ctaToFormRate,
       trendData: {
         thisWeek: thisWeekClicks,
         lastWeek: lastWeekClicks,

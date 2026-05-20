@@ -1,5 +1,5 @@
 /**
- * MassaPro Affiliate Tracker v4.0
+ * MassaPro Affiliate Tracker v4.1
  * Captures ALL traffic — with or without an affiliate ID.
  * Traffic without an affid is attributed to the "no_affiliate" account.
  *
@@ -12,6 +12,7 @@
  * API:
  *   MassaProAffiliate.config({ dashboardUrl: '...' })
  *   MassaProAffiliate.trackEvent(eventId)
+ *   MassaProAffiliate.trackLeadFormOpen()
  *   MassaProAffiliate.trackLead({ lead_name, lead_email, plan_type, initial_status })
  *   MassaProAffiliate.trackCart({ plan_type, quantity, cart_value })
  *   MassaProAffiliate.trackPurchase({ order_id, revenue, plan_type, customer_email, customer_name })
@@ -578,6 +579,33 @@
         utm_content: (affiliateData ? affiliateData.utm_content : '') || '',
         utm_term: (affiliateData ? affiliateData.utm_term : '') || '',
       }, 'button_click', eventId);
+    },
+
+    /**
+     * Track when the lead form is opened/displayed to the user.
+     * Call this when the lead form modal appears or the form page loads.
+     * This tracks the pre-submission step: user sees the form.
+     */
+    trackLeadFormOpen: function () {
+      var effectiveAffid = getEffectiveAffid();
+      var affiliateData = getAffiliateData();
+
+      // Save funnel step
+      saveFunnelStep('lead_form_open');
+
+      // Fire event pixel
+      fireEventTracking('lead_form_open');
+
+      // Fire click tracking with button_click event type for dashboard metrics
+      fireClickTracking(effectiveAffid, {
+        utm_source: (affiliateData ? affiliateData.utm_source : '') || '',
+        utm_medium: (affiliateData ? affiliateData.utm_medium : '') || '',
+        utm_campaign: (affiliateData ? affiliateData.utm_campaign : '') || '',
+        utm_content: (affiliateData ? affiliateData.utm_content : '') || '',
+        utm_term: (affiliateData ? affiliateData.utm_term : '') || '',
+      }, 'button_click', 'lead_form_open');
+
+      console.log('[MassaPro] Lead form open tracked');
     },
 
     /**

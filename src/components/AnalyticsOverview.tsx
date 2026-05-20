@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown } from 'lucide-react'
+import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown, MousePointerClick, FormInput } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -22,6 +22,10 @@ interface AdminStats {
   eventBreakdown: Record<string, number>
   trafficSources: Record<string, number>
   trafficByAffid: Record<string, number>
+  leadFormOpens: number
+  leadFormCtaClicks: number
+  leadFormSubmitRate: number
+  ctaToFormRate: number
   trendData: { thisWeek: number; lastWeek: number; change: number }
 }
 
@@ -30,6 +34,10 @@ const EVENT_LABELS: Record<string, string> = {
   btn_pricing_tier: 'Pricing Tier',
   btn_cta_signup: 'CTA Signup',
   btn_nav_contact: 'Nav Contact',
+  lead_form_open: 'Lead Form Open',
+  btn_buy_basic: 'Buy Basic',
+  btn_buy_pro: 'Buy Professional',
+  btn_buy_enterprise: 'Buy Enterprise',
 }
 
 const PIE_COLORS = ['#9333ea', '#a855f7', '#c084fc', '#7c3aed', '#d8b4fe', '#6b21a8']
@@ -88,12 +96,20 @@ export default function AnalyticsOverview() {
       bg: 'bg-purple-100',
     },
     {
-      label: 'Conversion Rate',
-      value: `${stats.blendedRate}%`,
-      sub: 'Visitors → Leads',
-      icon: Target,
-      color: 'text-green-600',
-      bg: 'bg-green-100',
+      label: 'CTA → Lead Form Clicks',
+      value: formatNumber(stats.leadFormCtaClicks),
+      sub: stats.ctaToFormRate > 0 ? `${stats.ctaToFormRate}% opened form` : 'Clicks on lead form CTAs',
+      icon: MousePointerClick,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100',
+    },
+    {
+      label: 'Lead Forms Opened',
+      value: formatNumber(stats.leadFormOpens),
+      sub: stats.leadFormSubmitRate > 0 ? `${stats.leadFormSubmitRate}% submitted` : 'Form open events',
+      icon: FormInput,
+      color: 'text-cyan-600',
+      bg: 'bg-cyan-100',
     },
     {
       label: 'Lead Forms Sent',
@@ -102,6 +118,14 @@ export default function AnalyticsOverview() {
       icon: FileText,
       color: 'text-blue-600',
       bg: 'bg-blue-100',
+    },
+    {
+      label: 'Conversion Rate',
+      value: `${stats.blendedRate}%`,
+      sub: 'Visitors → Leads',
+      icon: Target,
+      color: 'text-green-600',
+      bg: 'bg-green-100',
     },
     {
       label: 'Booking Rate',
@@ -137,7 +161,7 @@ export default function AnalyticsOverview() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
         {kpis.map(kpi => {
           const Icon = kpi.icon
           return (
@@ -156,6 +180,48 @@ export default function AnalyticsOverview() {
           )
         })}
       </div>
+
+      {/* Lead Form Funnel */}
+      <Card className="border-purple-100">
+        <CardHeader>
+          <CardTitle className="text-base">Lead Form Funnel</CardTitle>
+          <CardDescription>From CTA click to form submission</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            {[
+              { label: 'CTA Clicks', value: stats.leadFormCtaClicks, color: 'bg-indigo-500', pct: 100 },
+              { label: 'Form Opens', value: stats.leadFormOpens, color: 'bg-cyan-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.leadFormOpens / stats.leadFormCtaClicks) * 100) : 0 },
+              { label: 'Form Sent', value: stats.totalReferrals, color: 'bg-blue-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.totalReferrals / stats.leadFormCtaClicks) * 100) : 0 },
+              { label: 'Booked Calls', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0 },
+            ].map((step, i, arr) => (
+              <div key={step.label} className="flex items-center gap-2 flex-1">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-3 h-3 rounded-full ${step.color}`} />
+                    <span className="text-xs font-medium text-gray-700">{step.label}</span>
+                  </div>
+                  <div className="relative h-8 bg-gray-100 rounded-md overflow-hidden">
+                    <div
+                      className={`absolute inset-y-0 left-0 ${step.color} rounded-md transition-all duration-500`}
+                      style={{ width: `${Math.max(step.pct, step.value > 0 ? 8 : 0)}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-bold text-gray-800">{formatNumber(step.value)}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {step.pct > 0 ? `${step.pct}% of CTA clicks` : '—'}
+                  </div>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className="text-gray-300 text-lg mt-[-1rem]">→</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-2 gap-6">

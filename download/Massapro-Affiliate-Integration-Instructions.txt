@@ -1,7 +1,7 @@
 ================================================================================
   MASSAPRO AFFILIATE DASHBOARD — COMPLETE INTEGRATION INSTRUCTIONS
 ================================================================================
-  Version:        4.1
+  Version:        4.2
   Last Updated:   2026-05-20
   Dashboard:      https://aff-massapro.space-z.ai
   Website:        https://receptionist.massapro.com
@@ -47,11 +47,12 @@ QUESTION 2: TRACKER JS URL MISMATCH — WHICH URL SHOULD THE SITE USE?
 
 QUESTION 3: HAS trackEvent() BEEN ADDED TO THE HOSTED TRACKER JS?
 -------------------------------------------------------------------
-  ANSWER: YES. The hosted tracker JS is now version 3.0 and includes ALL
+  ANSWER: YES. The hosted tracker JS is now version 4.1 and includes ALL
   of these public methods:
 
     - MassaProAffiliate.config({ dashboardUrl })
     - MassaProAffiliate.trackEvent(eventId)
+    - MassaProAffiliate.trackLeadFormOpen()
     - MassaProAffiliate.trackLead({ lead_name, lead_email, ... })
     - MassaProAffiliate.trackCart({ plan_type, quantity, cart_value })
     - MassaProAffiliate.trackPurchase({ order_id, revenue, ... })
@@ -152,7 +153,7 @@ Add these two <script> tags to EVERY page of receptionist.massapro.com,
 ideally just before the closing </body> tag or in your site-wide layout
 template. This must appear on ALL pages, not just the /all page.
 
-  <!-- MassaPro Affiliate Tracker v3.0 -->
+  <!-- MassaPro Affiliate Tracker v4.1 -->
   <script src="https://aff-massapro.space-z.ai/massapro-affiliate-tracker.js"></script>
   <script>
     MassaProAffiliate.config({
@@ -401,12 +402,54 @@ CART VALUES (actual production prices):
 
 
 ---------------------------------------------------------------
-  STEP 4: TRACK LEAD FORM SUBMISSIONS
+  STEP 4: TRACK LEAD FORM OPENS + SUBMISSIONS
 ---------------------------------------------------------------
 
-When a visitor submits a lead form (contact form, demo request, etc.),
-call MassaProAffiliate.trackLead() to record the lead and attribute it
-to the referring affiliate.
+TRACKING THE LEAD FORM FUNNEL:
+  There are two stages in the lead form journey:
+
+    (1) Lead Form Open  — The form modal/page is displayed to the user
+    (2) Lead Form Submit — The user fills out and submits the form
+
+  Track BOTH stages to measure form conversion rates in the admin
+  dashboard (CTA Clicks → Form Opens → Form Submissions).
+
+LEAD FORM OPEN — call when the form is displayed:
+  When a lead form modal opens or the contact form page loads, call
+  MassaProAffiliate.trackLeadFormOpen() to record that the user
+  saw the form (even if they don't submit it).
+
+    // Call when the lead form modal appears or form page loads
+    MassaProAffiliate.trackLeadFormOpen();
+
+  WHAT THIS DOES:
+    - Saves "lead_form_open" as a funnel step in the cookie
+    - Fires an event pixel: lead_form_open
+    - Fires a click tracking event with event_type='button_click',
+      event_id='lead_form_open'
+    - Appears in the admin dashboard as "Lead Forms Opened" metric
+    - Appears in the Lead Form Funnel visualization
+
+  EXAMPLE — on a modal form open:
+    <button onclick="
+      document.getElementById('leadFormModal').style.display = 'block';
+      MassaProAffiliate.trackLeadFormOpen();
+    ">
+      Book a Demo
+    </button>
+
+  EXAMPLE — on a form page load:
+    <script>
+      // If this is the lead form page, track the form open
+      if (window.location.pathname === '/contact') {
+        MassaProAffiliate.trackLeadFormOpen();
+      }
+    </script>
+
+LEAD FORM SUBMISSION — call when the user submits the form:
+  When a visitor submits a lead form (contact form, demo request, etc.),
+  call MassaProAffiliate.trackLead() to record the lead and attribute it
+  to the referring affiliate.
 
   MassaProAffiliate.trackLead({
     lead_name: 'John Smith',
@@ -606,10 +649,11 @@ FUNNEL STEPS ARE ACCUMULATIVE:
 
 AUTOMATIC FUNNEL STEPS:
   The tracker automatically records:
-    - "landing"      — When visitor first arrives with ?affid=
-    - "lead_form"    — When trackLead() is called
-    - "add_to_cart"  — When trackCart() is called ("Buy Now" click)
-    - "purchase"     — When trackPurchase() is called (ClickBank postback)
+    - "landing"         — When visitor first arrives with ?affid=
+    - "lead_form_open"  — When trackLeadFormOpen() is called
+    - "lead_form"       — When trackLead() is called
+    - "add_to_cart"     — When trackCart() is called ("Buy Now" click)
+    - "purchase"        — When trackPurchase() is called (ClickBank postback)
 
 
 ---------------------------------------------------------------
@@ -662,6 +706,7 @@ Below is a complete reference of which events fire where and when:
   --------------------------   ----------------------   -----------------   ---------------
   Page load (with ?affid=)     trackClick (auto)        PageView            page_view
   CTA button (non-Buy Now)     trackEvent(eventId)      —                   —
+  Lead form opens              trackLeadFormOpen()      —                   —
   "Buy Now" button click       trackEvent(eventId)      AddToCart           add_to_cart
                                trackCart({...})
   Lead form submission         trackLead({...})         Lead                generate_lead
@@ -820,7 +865,7 @@ All tracking endpoints are public (no API key required).
     https://receptionist.massapro.com/?affid=massa001&utm_source=google&utm_campaign=spring
     |
     v
-  [Tracker JS v3.0] — auto-runs on page load
+  [Tracker JS v4.1] — auto-runs on page load
     |
     +--> Saves cookies: massapro_affiliate (30d), massapro_ft (30d),
     |                     massapro_session (1d), massapro_funnel (30d)
