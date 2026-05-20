@@ -2,13 +2,14 @@
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { BarChart3, Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug } from 'lucide-react'
+import { BarChart3, Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug, ShieldCheck, LogOut } from 'lucide-react'
 import AnalyticsOverview from './AnalyticsOverview'
 import LeadManagement from './LeadManagement'
 import AffiliateManagementTable from './AffiliateManagementTable'
 import LinkGeneratorTool from './LinkGeneratorTool'
 import CommissionLedger from './CommissionLedger'
 import IntegrationGuide from './IntegrationGuide'
+import AdminManagement from './AdminManagement'
 import { motion } from 'framer-motion'
 
 const navItems = [
@@ -18,10 +19,11 @@ const navItems = [
   { id: 'link-generator' as const, label: 'Link Generator', icon: Link2 },
   { id: 'payouts' as const, label: 'Payouts', icon: CreditCard },
   { id: 'integration' as const, label: 'Integration', icon: Plug },
+  { id: 'admins' as const, label: 'Admins', icon: ShieldCheck },
 ]
 
 export default function AdminLayout() {
-  const { adminTab, setAdminTab, setView } = useAppStore()
+  const { adminTab, setAdminTab, setView, adminUser, adminLogout } = useAppStore()
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -37,6 +39,17 @@ export default function AdminLayout() {
               <p className="text-xs text-gray-400">Manager Dashboard</p>
             </div>
           </div>
+          {/* Admin identity */}
+          {adminUser && (
+            <div className="mt-3 px-3 py-2 rounded-lg bg-gray-800/50 border border-gray-700">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">{adminUser.name}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">{adminUser.email}</p>
+              <p className="text-xs text-purple-500 mt-0.5 capitalize">{adminUser.role.replace('_', ' ')}</p>
+            </div>
+          )}
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map(item => {
@@ -58,7 +71,15 @@ export default function AdminLayout() {
             )
           })}
         </nav>
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-800 space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full text-red-400 hover:text-red-300 hover:bg-red-900/30 justify-start"
+            onClick={() => { adminLogout() }}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
           <Button
             variant="ghost"
             className="w-full text-gray-400 hover:text-white hover:bg-gray-800 justify-start"
@@ -78,15 +99,28 @@ export default function AdminLayout() {
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-sm">Manager</span>
+            {adminUser && (
+              <span className="text-xs text-purple-400 ml-1">({adminUser.name})</span>
+            )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-400 hover:text-white"
-            onClick={() => setView('landing')}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:text-red-300"
+              onClick={() => { adminLogout() }}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-white"
+              onClick={() => setView('landing')}
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
         <div className="flex border-t border-gray-800 overflow-x-auto">
           {navItems.map(item => {
@@ -123,6 +157,7 @@ export default function AdminLayout() {
             {adminTab === 'link-generator' && <LinkGeneratorTool />}
             {adminTab === 'payouts' && <CommissionLedger />}
             {adminTab === 'integration' && <IntegrationGuide />}
+            {adminTab === 'admins' && <AdminManagement />}
           </motion.div>
         </div>
       </main>

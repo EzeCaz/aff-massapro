@@ -75,7 +75,7 @@ export default function LandingPage() {
             >
               <Card
                 className="cursor-pointer hover:shadow-xl hover:shadow-purple-100/50 transition-all duration-300 border-2 hover:border-purple-400 h-full group bg-gradient-to-b from-white to-purple-50/30"
-                onClick={() => setView('admin')}
+                onClick={() => setView('admin-login')}
               >
                 <CardHeader className="pb-4">
                   <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
@@ -88,7 +88,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 group-hover:bg-purple-700">
-                    Enter Dashboard
+                    Admin Sign In
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </CardContent>

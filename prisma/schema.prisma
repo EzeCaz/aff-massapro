@@ -163,6 +163,20 @@ model CommissionLedger {
   @@index([createdAt])
 }
 
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  name      String
+  role      String   @default("admin")  // "admin", "super_admin"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
 model AffiliateEvent {
   id          String   @id @default(cuid())
   eventName   String
