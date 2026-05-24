@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown, MousePointerClick, FormInput } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown, MousePointerClick, FormInput, CalendarIcon, Filter, X } from 'lucide-react'
+import { format, subDays } from 'date-fns'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -27,6 +31,16 @@ interface AdminStats {
   leadFormSubmitRate: number
   ctaToFormRate: number
   trendData: { thisWeek: number; lastWeek: number; change: number }
+  filters?: {
+    utmSources: string[]
+    utmMediums: string[]
+    utmCampaigns: string[]
+    affids: { affid: string; name: string }[]
+  }
+  dateRange?: {
+    from: string
+    to: string
+  }
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -46,15 +60,52 @@ export default function AnalyticsOverview() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('/api/stats?mode=admin')
+  // Date range state - default last 30 days
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
+  const [fromOpen, setFromOpen] = useState(false)
+  const [toOpen, setToOpen] = useState(false)
+
+  // Filter state
+  const [filterAffid, setFilterAffid] = useState<string>('')
+  const [filterUtmSource, setFilterUtmSource] = useState<string>('')
+  const [filterUtmMedium, setFilterUtmMedium] = useState<string>('')
+  const [filterUtmCampaign, setFilterUtmCampaign] = useState<string>('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  const fetchStats = useCallback(() => {
+    setLoading(true)
+    const params = new URLSearchParams({ mode: 'admin' })
+    if (dateFrom) params.set('from', format(dateFrom, 'yyyy-MM-dd'))
+    if (dateTo) params.set('to', format(dateTo, 'yyyy-MM-dd'))
+    if (filterAffid && filterAffid !== 'all') params.set('filter_affid', filterAffid)
+    if (filterUtmSource && filterUtmSource !== 'all') params.set('filter_utm_source', filterUtmSource)
+    if (filterUtmMedium && filterUtmMedium !== 'all') params.set('filter_utm_medium', filterUtmMedium)
+    if (filterUtmCampaign && filterUtmCampaign !== 'all') params.set('filter_utm_campaign', filterUtmCampaign)
+
+    fetch(`/api/stats?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         setStats(data)
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [dateFrom, dateTo, filterAffid, filterUtmSource, filterUtmMedium, filterUtmCampaign])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
+
+  const resetFilters = () => {
+    setDateFrom(undefined)
+    setDateTo(undefined)
+    setFilterAffid('')
+    setFilterUtmSource('')
+    setFilterUtmMedium('')
+    setFilterUtmCampaign('')
+  }
+
+  const hasActiveFilters = filterAffid || filterUtmSource || filterUtmMedium || filterUtmCampaign || dateFrom || dateTo
 
   const formatNumber = (n: number) => n.toLocaleString('en-US')
 
@@ -85,6 +136,12 @@ export default function AnalyticsOverview() {
   const affidData = Object.entries(stats.trafficByAffid)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }))
+
+  // Available filter options from API response
+  const availableSources = stats.filters?.utmSources || []
+  const availableMediums = stats.filters?.utmMediums || []
+  const availableCampaigns = stats.filters?.utmCampaigns || []
+  const availableAffids = stats.filters?.affids || []
 
   const kpis = [
     {
@@ -159,6 +216,188 @@ export default function AnalyticsOverview() {
         <h1 className="text-2xl font-bold text-gray-900">Analytics Command Center</h1>
         <p className="text-sm text-gray-500">Real-time overview of your affiliate program performance</p>
       </div>
+
+      {/* Date Range & Filter Controls */}
+      <Card className="border-purple-100">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date From */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">From</span>
+              <Popover open={fromOpen} onOpenChange={setFromOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-[140px] justify-start text-left font-normal border-purple-200 hover:border-purple-400"
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-purple-500" />
+                    {dateFrom ? format(dateFrom, 'MMM dd, yyyy') : '30 days ago'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={(d) => { setDateFrom(d); setFromOpen(false) }}
+                    disabled={(d) => d > new Date() || (dateTo ? d > dateTo : false)}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Date To */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">To</span>
+              <Popover open={toOpen} onOpenChange={setToOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-[140px] justify-start text-left font-normal border-purple-200 hover:border-purple-400"
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-purple-500" />
+                    {dateTo ? format(dateTo, 'MMM dd, yyyy') : 'Today'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={(d) => { setDateTo(d); setToOpen(false) }}
+                    disabled={(d) => d > new Date() || (dateFrom ? d < dateFrom : false)}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+
+            {/* Quick date presets */}
+            <div className="flex gap-1">
+              {[
+                { label: '7d', days: 7 },
+                { label: '30d', days: 30 },
+                { label: '90d', days: 90 },
+              ].map(preset => (
+                <Button
+                  key={preset.days}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50"
+                  onClick={() => {
+                    setDateFrom(subDays(new Date(), preset.days))
+                    setDateTo(new Date())
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+
+            <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+
+            {/* Toggle filters */}
+            <Button
+              variant={showFilters ? 'default' : 'outline'}
+              size="sm"
+              className={`gap-1.5 ${showFilters ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 text-purple-600 hover:border-purple-400'}`}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-1 w-4 h-4 rounded-full bg-white/30 text-[10px] flex items-center justify-center">
+                  !
+                </span>
+              )}
+            </Button>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-gray-400 hover:text-red-500 gap-1"
+                onClick={resetFilters}
+              >
+                <X className="w-3 h-3" />
+                Reset
+              </Button>
+            )}
+          </div>
+
+          {/* Expanded filter row */}
+          {showFilters && (
+            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-purple-100">
+              {/* Affid filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">Affiliate</span>
+                <Select value={filterAffid} onValueChange={setFilterAffid}>
+                  <SelectTrigger className="w-[180px] h-8 text-xs border-purple-200">
+                    <SelectValue placeholder="All affiliates" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All affiliates</SelectItem>
+                    {availableAffids.map(a => (
+                      <SelectItem key={a.affid} value={a.affid}>
+                        {a.name} ({a.affid})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* UTM Source filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Source</span>
+                <Select value={filterUtmSource} onValueChange={setFilterUtmSource}>
+                  <SelectTrigger className="w-[150px] h-8 text-xs border-purple-200">
+                    <SelectValue placeholder="All sources" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sources</SelectItem>
+                    {availableSources.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* UTM Medium filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Medium</span>
+                <Select value={filterUtmMedium} onValueChange={setFilterUtmMedium}>
+                  <SelectTrigger className="w-[150px] h-8 text-xs border-purple-200">
+                    <SelectValue placeholder="All mediums" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All mediums</SelectItem>
+                    {availableMediums.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* UTM Campaign filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Campaign</span>
+                <Select value={filterUtmCampaign} onValueChange={setFilterUtmCampaign}>
+                  <SelectTrigger className="w-[180px] h-8 text-xs border-purple-200">
+                    <SelectValue placeholder="All campaigns" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All campaigns</SelectItem>
+                    {availableCampaigns.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">

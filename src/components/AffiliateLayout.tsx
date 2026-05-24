@@ -75,10 +75,10 @@ export default function AffiliateLayout() {
       <header className="bg-white border-b border-purple-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-9 h-9 rounded-lg" />
+            <img src="https://aff.massapro.com/android-chrome-192x192.png" alt="MassaPro" className="w-9 h-9 rounded-lg" />
             <div>
               <h1 className="font-bold text-gray-900">MassaPro</h1>
-              <p className="text-xs text-purple-500">AI Secretary — Affiliate Portal</p>
+              <p className="text-xs text-purple-500">AI Agentic Receptionist — Affiliate Portal</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
