@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       data: {
         affiliateId: affiliate.id,
         affid: effectiveAffid,
-        utmSource: lt_utm_source || utm_campaign ? (lt_utm_source || null) : null,
+        utmSource: lt_utm_source || null,
         utmMedium: lt_utm_medium || null,
         utmCampaign: lt_utm_campaign || utm_campaign || null,
         utmContent: lt_utm_content || utm_content || null,
