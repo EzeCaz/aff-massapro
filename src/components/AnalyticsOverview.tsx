@@ -233,25 +233,33 @@ export default function AnalyticsOverview() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={eventData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '8px',
-                      border: '1px solid #e9d5ff',
-                      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
-                    {eventData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {eventData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={eventData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: '1px solid #e9d5ff',
+                        boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
+                      }}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
+                      {eventData.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <MousePointerClick className="w-10 h-10 mb-2 text-gray-300" />
+                  <p className="text-sm font-medium">No button click events yet</p>
+                  <p className="text-xs text-gray-300 mt-1">Events will appear here when visitors click CTAs on your site</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -264,30 +272,38 @@ export default function AnalyticsOverview() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={sourceData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={3}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {sourceData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '8px',
-                      border: '1px solid #e9d5ff',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {sourceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sourceData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {sourceData.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: '1px solid #e9d5ff',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <Eye className="w-10 h-10 mb-2 text-gray-300" />
+                  <p className="text-sm font-medium">No traffic source data yet</p>
+                  <p className="text-xs text-gray-300 mt-1">Sources will appear as traffic is tracked with UTM parameters</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -300,25 +316,33 @@ export default function AnalyticsOverview() {
           <CardDescription>Which affiliates are driving the most traffic</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {affidData.map((item, i) => (
-              <div key={item.name} className="flex items-center gap-3 p-3 rounded-lg border border-purple-100 bg-purple-50/30">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                >
-                  {item.name.split('-')[1]?.[0] || '?'}
+          {affidData.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {affidData.map((item, i) => (
+                <div key={item.name} className="flex items-center gap-3 p-3 rounded-lg border border-purple-100 bg-purple-50/30">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                  >
+                    {item.name.split('-')[1]?.[0] || '?'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm text-gray-900">{item.name}</div>
+                    <div className="text-xs text-gray-500">{item.value} clicks</div>
+                  </div>
+                  <div className="text-sm font-bold text-purple-600">
+                    {stats.totalTraffic > 0 ? Math.round((item.value / stats.totalTraffic) * 100) : 0}%
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-sm text-gray-900">{item.name}</div>
-                  <div className="text-xs text-gray-500">{item.value} clicks</div>
-                </div>
-                <div className="text-sm font-bold text-purple-600">
-                  {stats.totalTraffic > 0 ? Math.round((item.value / stats.totalTraffic) * 100) : 0}%
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 flex flex-col items-center justify-center text-gray-400">
+              <Users className="w-10 h-10 mb-2 text-gray-300" />
+              <p className="text-sm font-medium">No affiliate traffic yet</p>
+              <p className="text-xs text-gray-300 mt-1">Traffic distribution will appear as affiliates drive visitors</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

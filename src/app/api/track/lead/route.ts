@@ -119,6 +119,52 @@ export async function POST(request: NextRequest) {
     const isPayingCustomer = leadStatus === 'Paying Customer'
     const signupCommission = (!isDirectTraffic && isPayingCustomer) ? getSignupComm(affiliate) : 0
 
+    // Auto-create funnel events for this lead:
+    // A lead submission implies: 1) a CTA click, 2) a form open, and 3) the form submission.
+    // We create these Click records if they weren't already tracked by the client-side tracker.
+    const now = new Date()
+    const sessionId = body.session_id || `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const pageUrl = body.page_url || null
+
+    // Determine a CTA event ID based on plan type for better attribution
+    const ctaEventId = planType === 'Enterprise' ? 'btn_pricing_tier' : 'btn_cta_signup'
+
+    // 1. Create CTA click event (user must have clicked a CTA to reach the form)
+    await db.click.create({
+      data: {
+        affiliateId: affiliate.id,
+        affid: effectiveAffid,
+        utmSource: lt_utm_source || utm_campaign ? (lt_utm_source || null) : null,
+        utmMedium: lt_utm_medium || null,
+        utmCampaign: lt_utm_campaign || utm_campaign || null,
+        utmContent: lt_utm_content || utm_content || null,
+        utmTerm: lt_utm_term || null,
+        pageUrl,
+        eventType: 'button_click',
+        eventId: ctaEventId,
+        sessionId,
+        createdAt: new Date(now.getTime() - 5000), // 5s before form open
+      },
+    })
+
+    // 2. Create form open event (user must have opened the form to submit it)
+    await db.click.create({
+      data: {
+        affiliateId: affiliate.id,
+        affid: effectiveAffid,
+        utmSource: lt_utm_source || null,
+        utmMedium: lt_utm_medium || null,
+        utmCampaign: lt_utm_campaign || utm_campaign || null,
+        utmContent: lt_utm_content || utm_content || null,
+        utmTerm: lt_utm_term || null,
+        pageUrl,
+        eventType: 'button_click',
+        eventId: 'lead_form_open',
+        sessionId,
+        createdAt: new Date(now.getTime() - 2000), // 2s before submission
+      },
+    })
+
     // Create referral record
     const referral = await db.referral.create({
       data: {
