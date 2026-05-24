@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sparkles, ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function AffiliateLogin() {
@@ -63,9 +63,7 @@ export default function AffiliateLogin() {
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">MassaPro</h1>
               <p className="text-xs text-purple-500">Affiliate Portal</p>
@@ -82,8 +80,8 @@ export default function AffiliateLogin() {
         >
           <Card className="border-purple-200 shadow-lg shadow-purple-100/50">
             <CardHeader className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-7 h-7 text-purple-600" />
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-3 p-2">
+                <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
               </div>
               <CardTitle className="text-2xl">Affiliate Login</CardTitle>
               <CardDescription>

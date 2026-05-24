@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
-import { BarChart3, Users, Link2, CreditCard, ArrowLeft, Sparkles, Plug, ShieldCheck, LogOut } from 'lucide-react'
+import { BarChart3, Users, Link2, CreditCard, ArrowLeft, Plug, ShieldCheck, LogOut } from 'lucide-react'
 import AnalyticsOverview from './AnalyticsOverview'
 import LeadManagement from './LeadManagement'
 import AffiliateManagementTable from './AffiliateManagementTable'
@@ -31,9 +31,7 @@ export default function AdminLayout() {
       <aside className="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-purple-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-9 h-9 rounded-lg" />
             <div>
               <h2 className="font-bold text-sm">MassaPro</h2>
               <p className="text-xs text-gray-400">Manager Dashboard</p>
@@ -95,9 +93,7 @@ export default function AdminLayout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-sm">Manager</span>
             {adminUser && (
               <span className="text-xs text-purple-400 ml-1">({adminUser.name})</span>

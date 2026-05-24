@@ -70,8 +70,8 @@ export default function AdminLogin() {
 
         <Card className="border-2 border-purple-200 shadow-xl shadow-purple-100/50">
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-purple-600 flex items-center justify-center mb-4">
-              <Shield className="w-8 h-8 text-white" />
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center mb-4 p-2">
+              <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-12 h-12 rounded-xl" />
             </div>
             <CardTitle className="text-2xl">Admin Login</CardTitle>
             <CardDescription>

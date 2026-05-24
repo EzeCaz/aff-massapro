@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Sparkles, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function AffiliateRegistration() {
@@ -55,9 +55,7 @@ export default function AffiliateRegistration() {
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex flex-col">
         <header className="border-b border-purple-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">MassaPro</h1>
               <p className="text-xs text-purple-500">AI Agentic Receptionist</p>
@@ -104,9 +102,7 @@ export default function AffiliateRegistration() {
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">MassaPro</h1>
               <p className="text-xs text-purple-500">Affiliate Program</p>
@@ -123,8 +119,8 @@ export default function AffiliateRegistration() {
         >
           <Card className="border-purple-200 shadow-lg shadow-purple-100/50">
             <CardHeader className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-7 h-7 text-purple-600" />
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-3 p-2">
+                <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
               </div>
               <CardTitle className="text-2xl">Join Our Affiliate Program</CardTitle>
               <CardDescription>
