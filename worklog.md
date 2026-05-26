@@ -76,3 +76,27 @@ Stage Summary:
 - Lost = deal lost (no commission)
 - Legacy statuses fully supported for backwards compatibility
 - Code pushed to GitHub (EzeCaz/aff-massapro)
+
+---
+Task ID: 4
+Agent: Main
+Task: Add With/Without Tests toggle button on analytics dashboard
+
+Work Log:
+- Added `withTests` boolean to FilterState in AnalyticsOverview.tsx (default: true)
+- Added toggle button on top right of Analytics screen header
+  - Purple "With Tests" when on (includes test leads)
+  - Amber "Without Tests" when off (excludes test leads)
+- Passes `withTests=false` query param to /api/stats when toggled off
+- Updated /api/stats route:
+  - Parses withTests param (default true)
+  - When withoutTests: adds `leadStatus: { notIn: ['Test'] }` to referral queries
+  - Smart click filtering: excludes click traffic from affiliates that ONLY have test referrals
+  - Affiliates with mixed real+test leads keep their traffic (conservative approach)
+  - All metrics use effectiveClickWhere instead of clickWhere for consistent filtering
+  - bookedCalls count excludes 'Test' from the status list when without tests
+
+Stage Summary:
+- Analytics dashboard now has a prominent With/Without Tests toggle
+- All dashboard data (KPIs, funnel, charts, traffic sources, trends) respects the filter
+- Code pushed to GitHub (EzeCaz/aff-massapro)
