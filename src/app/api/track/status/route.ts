@@ -17,7 +17,7 @@ const COMMISSION_MAP: Record<string, number> = {
   Basic: 10,
 }
 
-const NEW_STATUSES = ['Lead', 'Attendee', 'Test', 'Lost', 'Won']
+const NEW_STATUSES = ['Lead', 'Attendee', 'No Show', 'Test', 'Lost', 'Won']
 const LEGACY_STATUSES = ['Booked Call', 'Paying Customer', 'Churned']
 const VALID_STATUSES = [...NEW_STATUSES, ...LEGACY_STATUSES]
 const VALID_PLANS = ['Enterprise', 'Professional', 'Basic']

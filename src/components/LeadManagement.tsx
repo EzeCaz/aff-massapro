@@ -12,7 +12,7 @@ import { Loader2, Search, Download, Filter, Check, ChevronDown } from 'lucide-re
 import { format } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 
-const LEAD_STATUSES = ['Lead', 'Attendee', 'Test', 'Lost', 'Won'] as const
+const LEAD_STATUSES = ['Lead', 'Attendee', 'No Show', 'Test', 'Lost', 'Won'] as const
 type LeadStatus = typeof LEAD_STATUSES[number]
 
 interface Referral {
@@ -137,6 +137,8 @@ export default function LeadManagement() {
         return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">{status}</Badge>
       case 'Attendee':
         return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">{status}</Badge>
+      case 'No Show':
+        return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200">{status}</Badge>
       case 'Test':
         return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">{status}</Badge>
       case 'Won':
@@ -266,6 +268,7 @@ export default function LeadManagement() {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Lead">Lead</SelectItem>
             <SelectItem value="Attendee">Attendee</SelectItem>
+            <SelectItem value="No Show">No Show</SelectItem>
             <SelectItem value="Test">Test</SelectItem>
             <SelectItem value="Won">Won</SelectItem>
             <SelectItem value="Lost">Lost</SelectItem>

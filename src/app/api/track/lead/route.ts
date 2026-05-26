@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     const leadStatus = initial_status || 'Lead'
 
     // Validate lead status (new statuses + legacy support)
-    const newStatuses = ['Lead', 'Attendee', 'Test', 'Lost', 'Won']
+    const newStatuses = ['Lead', 'Attendee', 'No Show', 'Test', 'Lost', 'Won']
     const legacyStatuses = ['Booked Call', 'Paying Customer', 'Churned']
     const validStatuses = [...newStatuses, ...legacyStatuses]
     if (!validStatuses.includes(leadStatus)) {

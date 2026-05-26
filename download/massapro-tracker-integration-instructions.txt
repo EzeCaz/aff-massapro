@@ -1,0 +1,133 @@
+MASSAPRO AFFILIATE TRACKER - INTEGRATION INSTRUCTIONS
+for receptionist.massapro.com
+======================================================
+
+STEP 1: ADD THE TRACKER SCRIPT TO THE <head> SECTION
+Add these two script tags to the <head> of every page on receptionist.massapro.com (add it to the site layout so it loads on all pages):
+
+<script src="https://preview-f43bf3a5-083a-4c86-b60b-5e47f8a89485.space.chatglm.site/massapro-affiliate-tracker.js"></script>
+<script>
+  MassaProAffiliate.config({ dashboardUrl: 'https://preview-f43bf3a5-083a-4c86-b60b-5e47f8a89485.space.chatglm.site' });
+</script>
+
+This script automatically does the following on every page load:
+- Reads ?affid=MP-JOHN-002&utm_source=google&utm_campaign=... from the URL
+- Saves first-touch UTMs to a "massapro_ft" cookie (never overwritten, 30 days)
+- Saves last-touch UTMs to a "massapro_affiliate" cookie (always updated, 30 days)
+- Fires a click tracking pixel so traffic shows in the affiliate dashboard
+
+
+STEP 2: ADD GOOGLE CALENDAR BOOKING TRACKING
+Add this script right after the tracker script from Step 1. This listens for Google Calendar embed interactions and captures the lead when someone books:
+
+<script>
+  (function() {
+    var formSubmitted = false;
+
+    // Method 1: Watch for Google Calendar iframe postMessage events
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'calendar-event-booked') {
+        if (formSubmitted) return;
+        formSubmitted = true;
+        var attr = MassaProAffiliate.getAttribution();
+        if (attr && attr.affid) {
+          MassaProAffiliate.trackLead({
+            lead_name: e.data.name || 'Google Calendar Booking',
+            lead_email: e.data.email || '',
+            lead_phone: e.data.phone || '',
+            lead_company: '',
+            plan_type: 'Basic',
+            initial_status: 'Booked Call'
+          });
+        }
+      }
+    });
+
+    // Method 2: Watch for any form submission on the page (fallback)
+    document.addEventListener('submit', function(e) {
+      if (formSubmitted) return;
+      var form = e.target;
+      var emailField = form.querySelector('input[type="email"], input[name*="email"], input[placeholder*="email" i]');
+      var nameField = form.querySelector('input[name*="name"], input[placeholder*="name" i]');
+      var phoneField = form.querySelector('input[type="tel"], input[name*="phone"], input[placeholder*="phone" i]');
+      var companyField = form.querySelector('input[name*="company"], input[placeholder*="company" i]');
+
+      if (emailField || nameField) {
+        formSubmitted = true;
+        var attr = MassaProAffiliate.getAttribution();
+        if (attr && attr.affid) {
+          MassaProAffiliate.trackLead({
+            lead_name: nameField ? nameField.value : 'Website Lead',
+            lead_email: emailField ? emailField.value : '',
+            lead_phone: phoneField ? phoneField.value : '',
+            lead_company: companyField ? companyField.value : '',
+            plan_type: 'Basic',
+            initial_status: 'Lead'
+          });
+        }
+      }
+    }, true);
+
+    // Method 3: Watch for Google Calendar button/link clicks
+    document.addEventListener('click', function(e) {
+      var target = e.target.closest('a[href*="calendar.google"], a[href*="calendly"], button[data-calendar], [data-book]');
+      if (target && !formSubmitted) {
+        MassaProAffiliate.trackEvent('btn_book_calendar');
+      }
+    });
+  })();
+</script>
+
+
+STEP 3: ADD EVENT TRACKING TO CTA BUTTONS
+Add the onclick attribute to your existing CTA buttons on the page. Find each button and add the MassaProAffiliate.trackEvent() call. Here are the buttons to track:
+
+HERO SECTION - "Book a Demo" or "Get Started" button:
+Find your hero CTA button and add this onclick:
+onclick="MassaProAffiliate.trackEvent('btn_hero_demo')"
+
+Example - your button should look like:
+<button onclick="MassaProAffiliate.trackEvent('btn_hero_demo')">Book a Demo</button>
+
+PRICING SECTION - "Get Started" or plan selection buttons:
+Find your pricing CTA buttons and add this onclick:
+onclick="MassaProAffiliate.trackEvent('btn_pricing_tier')"
+
+Example:
+<button onclick="MassaProAffiliate.trackEvent('btn_pricing_tier')">Get Started</button>
+
+NAVIGATION - "Contact" link:
+Find your nav contact link and add this onclick:
+onclick="MassaProAffiliate.trackEvent('btn_nav_contact')"
+
+Example:
+<a href="#contact" onclick="MassaProAffiliate.trackEvent('btn_nav_contact')">Contact</a>
+
+CTA SIGNUP - Any signup/register button:
+onclick="MassaProAffiliate.trackEvent('btn_cta_signup')"
+
+
+STEP 4: HOW TO TEST
+After adding the code, test it with this URL (open in browser):
+https://receptionist.massapro.com/?affid=MP-SARAH-001&utm_source=google&utm_medium=cpc&utm_campaign=test_campaign
+
+Then check the affiliate dashboard:
+https://preview-f43bf3a5-083a-4c86-b60b-5e47f8a89485.space.chatglm.site/
+
+Login as Sarah Mitchell:
+Email: sarah@digitalgrowth.co
+Password: changeme
+
+You should see:
+- 1 new click in the traffic chart
+- The UTM campaign "test_campaign" in the campaign breakdown
+
+
+SUMMARY - What the tracker does automatically:
+- Visitor arrives with ?affid=... in URL → cookie set for 30 days, click recorded
+- Visitor returns within 30 days without affid → cookie kept alive, still attributed
+- Visitor submits any form → trackLead() captures name, email, phone, company + all UTMs from cookie
+- Visitor clicks a tracked button → trackEvent() logs which button was clicked
+- All data appears in the affiliate dashboard in real-time
+
+IMPORTANT: The tracker only tracks visitors who arrive via an affiliate link (with ?affid= in the URL). Regular visitors without affid are ignored.

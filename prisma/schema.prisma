@@ -99,7 +99,7 @@ model Referral {
   leadPhone         String?
   leadCompany       String?
   planType          String   // "Enterprise", "Professional", "Basic"
-  leadStatus        String   // "Lead", "Booked Call", "Paying Customer", "Churned"
+  leadStatus        String   // "Lead", "Attendee", "No Show", "Test", "Won", "Lost"
   signupCommission  Float    @default(0)
   monthlyCommission Float    @default(0)
   monthsActive      Int      @default(0)

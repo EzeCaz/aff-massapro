@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
     const totalClicks = clicks.length
     const leads = referrals.filter(r => r.leadStatus === 'Lead').length
     const attendees = referrals.filter(r => r.leadStatus === 'Attendee' || r.leadStatus === 'Booked Call').length
+    const noShows = referrals.filter(r => r.leadStatus === 'No Show').length
     const tests = referrals.filter(r => r.leadStatus === 'Test').length
     const won = referrals.filter(r => r.leadStatus === 'Won' || r.leadStatus === 'Paying Customer').length
     const lost = referrals.filter(r => r.leadStatus === 'Lost' || r.leadStatus === 'Churned').length
@@ -128,6 +129,7 @@ export async function GET(request: NextRequest) {
     const referralBreakdown = {
       leads,
       attendees,
+      noShows,
       tests,
       won,
       lost,

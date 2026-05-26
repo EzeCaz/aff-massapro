@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
-const LEAD_STATUSES = ['Lead', 'Attendee', 'Test', 'Lost', 'Won']
+const LEAD_STATUSES = ['Lead', 'Attendee', 'No Show', 'Test', 'Lost', 'Won']
 // Legacy statuses still accepted for backwards compatibility
 const LEGACY_STATUSES = ['Booked Call', 'Paying Customer', 'Churned']
 const ALL_STATUSES = [...LEAD_STATUSES, ...LEGACY_STATUSES]

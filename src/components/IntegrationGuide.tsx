@@ -325,6 +325,7 @@ function TestStatusUpdate() {
             <SelectContent>
               <SelectItem value="Lead">Lead</SelectItem>
               <SelectItem value="Attendee">Attendee</SelectItem>
+              <SelectItem value="No Show">No Show</SelectItem>
               <SelectItem value="Test">Test</SelectItem>
               <SelectItem value="Won">Won</SelectItem>
               <SelectItem value="Lost">Lost</SelectItem>
