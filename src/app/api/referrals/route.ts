@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const monthlyCommission = commissionMap[planType] || 10
-    const signupCommission = (leadStatus === 'Paying Customer' || leadStatus === 'Churned') ? 100 : 0
+    const signupCommission = (leadStatus === 'Paying Customer' || leadStatus === 'Won') ? 100 : 0
 
     const referral = await db.referral.create({
       data: {

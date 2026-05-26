@@ -8,8 +8,12 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Search, Download, Filter } from 'lucide-react'
+import { Loader2, Search, Download, Filter, Check, ChevronDown } from 'lucide-react'
 import { format } from 'date-fns'
+import { useToast } from '@/hooks/use-toast'
+
+const LEAD_STATUSES = ['Lead', 'Attendee', 'Test', 'Lost', 'Won'] as const
+type LeadStatus = typeof LEAD_STATUSES[number]
 
 interface Referral {
   id: string
@@ -41,6 +45,7 @@ interface Referral {
 }
 
 export default function LeadManagement() {
+  const { toast } = useToast()
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -49,6 +54,8 @@ export default function LeadManagement() {
   const [affidFilter, setAffidFilter] = useState('all')
   const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  const [sheetStatus, setSheetStatus] = useState<string>('')
 
   const fetchReferrals = useCallback(async () => {
     try {
@@ -82,16 +89,67 @@ export default function LeadManagement() {
     return matchesSearch && matchesAffid
   })
 
+  const handleStatusChange = async (referralId: string, newStatus: string) => {
+    setUpdatingStatus(referralId)
+    try {
+      const res = await fetch(`/api/referrals/${referralId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadStatus: newStatus }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update status')
+      }
+      const data = await res.json()
+
+      // Update local state
+      setReferrals(prev => prev.map(r =>
+        r.id === referralId
+          ? { ...r, leadStatus: newStatus, updatedAt: data.referral?.updatedAt || new Date().toISOString() }
+          : r
+      ))
+
+      // Update sheet if this referral is selected
+      if (selectedReferral?.id === referralId) {
+        setSelectedReferral(prev => prev ? { ...prev, leadStatus: newStatus, updatedAt: data.referral?.updatedAt || new Date().toISOString() } : prev)
+        setSheetStatus(newStatus)
+      }
+
+      toast({
+        title: 'Status updated',
+        description: `Lead status changed to ${newStatus}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update status',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
+
   const statusBadge = (status: string) => {
     switch (status) {
       case 'Lead':
-        return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">{status}</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200">{status}</Badge>
+      case 'Attendee':
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">{status}</Badge>
+      case 'Test':
+        return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">{status}</Badge>
+      case 'Won':
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">{status}</Badge>
+      case 'Lost':
+        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">{status}</Badge>
+      // Legacy statuses (for backwards compatibility with existing data)
       case 'Booked Call':
-        return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{status}</Badge>
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">{status}</Badge>
       case 'Paying Customer':
-        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{status}</Badge>
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">{status}</Badge>
       case 'Churned':
-        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{status}</Badge>
+        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">{status}</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -181,7 +239,7 @@ export default function LeadManagement() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lead Management</h1>
-          <p className="text-sm text-gray-500">Attribution matrix with first-touch and last-touch UTM data</p>
+          <p className="text-sm text-gray-500">Manage leads, update status, and view attribution data</p>
         </div>
         <Button variant="outline" onClick={handleExportCSV} className="border-purple-300 text-purple-600 hover:bg-purple-50">
           <Download className="w-4 h-4 mr-2" />
@@ -207,9 +265,10 @@ export default function LeadManagement() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Lead">Lead</SelectItem>
-            <SelectItem value="Booked Call">Booked Call</SelectItem>
-            <SelectItem value="Paying Customer">Paying Customer</SelectItem>
-            <SelectItem value="Churned">Churned</SelectItem>
+            <SelectItem value="Attendee">Attendee</SelectItem>
+            <SelectItem value="Test">Test</SelectItem>
+            <SelectItem value="Won">Won</SelectItem>
+            <SelectItem value="Lost">Lost</SelectItem>
           </SelectContent>
         </Select>
         <Select value={planFilter} onValueChange={setPlanFilter}>
@@ -266,7 +325,7 @@ export default function LeadManagement() {
                     <TableRow
                       key={ref.id}
                       className="cursor-pointer hover:bg-purple-50/50"
-                      onClick={() => { setSelectedReferral(ref); setSheetOpen(true) }}
+                      onClick={() => { setSelectedReferral(ref); setSheetStatus(ref.leadStatus); setSheetOpen(true) }}
                     >
                       <TableCell className="text-sm text-gray-500 whitespace-nowrap">
                         {format(new Date(ref.createdAt), 'MMM d, yyyy')}
@@ -274,7 +333,32 @@ export default function LeadManagement() {
                       <TableCell className="font-medium">{ref.leadName}</TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-gray-500">{ref.leadEmail || '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-sm text-gray-500">{ref.leadCompany || '—'}</TableCell>
-                      <TableCell>{statusBadge(ref.leadStatus)}</TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Select
+                          value={ref.leadStatus}
+                          onValueChange={(newStatus) => handleStatusChange(ref.id, newStatus)}
+                          disabled={updatingStatus === ref.id}
+                        >
+                          <SelectTrigger className="h-7 w-[120px] text-xs border-0 p-0 gap-0 hover:bg-transparent focus:ring-0 shadow-none">
+                            {updatingStatus === ref.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+                            ) : (
+                              statusBadge(ref.leadStatus)
+                            )}
+                            <ChevronDown className="w-3 h-3 text-gray-400 ml-0.5" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LEAD_STATUSES.map(s => (
+                              <SelectItem key={s} value={s}>
+                                <span className="flex items-center gap-2">
+                                  {statusBadge(s)}
+                                  {s === ref.leadStatus && <Check className="w-3 h-3 text-green-600" />}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>{planBadge(ref.planType)}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <code className="text-xs bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">{ref.affid}</code>
@@ -332,12 +416,37 @@ export default function LeadManagement() {
                   </div>
                 </div>
 
-                {/* Status & Plan */}
+                {/* Status & Plan — with editable status */}
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-gray-700">Status & Plan</h4>
-                  <div className="flex gap-3">
-                    {statusBadge(selectedReferral.leadStatus)}
-                    {planBadge(selectedReferral.planType)}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-400 mb-1">Lead Status</div>
+                      <Select
+                        value={sheetStatus}
+                        onValueChange={(newStatus) => handleStatusChange(selectedReferral.id, newStatus)}
+                        disabled={updatingStatus === selectedReferral.id}
+                      >
+                        <SelectTrigger className="h-9 w-full">
+                          {updatingStatus === selectedReferral.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                          ) : (
+                            <SelectValue />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LEAD_STATUSES.map(s => (
+                            <SelectItem key={s} value={s}>
+                              {s === sheetStatus ? `✓ ${s}` : s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 mb-1">Plan</div>
+                      {planBadge(selectedReferral.planType)}
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mt-2">
                     <div>

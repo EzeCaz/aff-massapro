@@ -139,12 +139,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (referral) {
-          // Update existing referral to "Paying Customer"
-          if (referral.leadStatus !== 'Paying Customer') {
+          // Update existing referral to "Won" (purchase = conversion)
+          if (referral.leadStatus !== 'Won' && referral.leadStatus !== 'Paying Customer') {
             await db.referral.update({
               where: { id: referral.id },
               data: {
-                leadStatus: 'Paying Customer',
+                leadStatus: 'Won',
                 planType,
                 signupCommission: signupComm,
                 monthlyCommission: monthlyComm,
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
               leadName: customer_name || 'Purchase Customer',
               leadEmail: customer_email || null,
               planType,
-              leadStatus: 'Paying Customer',
+              leadStatus: 'Won',
               signupCommission: signupComm,
               monthlyCommission: monthlyComm,
               totalCommission: signupComm,

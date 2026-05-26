@@ -242,7 +242,7 @@ function TestStatusUpdate() {
   const [referralId, setReferralId] = useState('')
   const [leadEmail, setLeadEmail] = useState('')
   const [affid, setAffid] = useState('')
-  const [newStatus, setNewStatus] = useState('Active Subscriber')
+  const [newStatus, setNewStatus] = useState('Won')
   const [planType, setPlanType] = useState('')
   const [monthsActive, setMonthsActive] = useState('')
   const [loading, setLoading] = useState(false)
@@ -324,9 +324,10 @@ function TestStatusUpdate() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Lead">Lead</SelectItem>
-              <SelectItem value="Call Booked">Call Booked</SelectItem>
-              <SelectItem value="Active Subscriber">Active Subscriber</SelectItem>
-              <SelectItem value="Churned">Churned</SelectItem>
+              <SelectItem value="Attendee">Attendee</SelectItem>
+              <SelectItem value="Test">Test</SelectItem>
+              <SelectItem value="Won">Won</SelectItem>
+              <SelectItem value="Lost">Lost</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -397,7 +398,7 @@ MassaProAffiliate.trackLead({
 
   const statusWebhookExample = JSON.stringify({
     referral_id: 'clxabc123...',
-    new_status: 'Active Subscriber',
+    new_status: 'Won',
     plan_type: 'Enterprise',
     months_active: 3,
   }, null, 2)
@@ -534,7 +535,7 @@ MassaProAffiliate.trackLead({
                 <ul className="mt-2 space-y-1 text-xs text-emerald-700">
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    <strong>Signup Commission:</strong> $100 if initial_status is &quot;Active Subscriber&quot;, otherwise $0
+                    <strong>Signup Commission:</strong> $100 if initial_status is &quot;Won&quot;, otherwise $0
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -606,11 +607,11 @@ MassaProAffiliate.trackLead({
                 <ul className="mt-2 space-y-1 text-xs text-amber-700">
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    <strong>→ Active Subscriber:</strong> Awards $100 signup commission, increments affiliate conversions
+                    <strong>→ Won:</strong> Awards $100 signup commission, increments affiliate conversions
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    <strong>→ Churned:</strong> Updates status and stops future recurring commissions
+                    <strong>→ Lost:</strong> Updates status — deal is lost
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -628,11 +629,11 @@ MassaProAffiliate.trackLead({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="border rounded-lg p-3">
                     <p className="text-xs font-semibold text-gray-700">Option A: By Referral ID</p>
-                    <CodeBlock code={JSON.stringify({ referral_id: 'clxabc123', new_status: 'Active Subscriber' }, null, 2)} language="json" />
+                    <CodeBlock code={JSON.stringify({ referral_id: 'clxabc123', new_status: 'Won' }, null, 2)} language="json" />
                   </div>
                   <div className="border rounded-lg p-3">
                     <p className="text-xs font-semibold text-gray-700">Option B: By Email + AffID</p>
-                    <CodeBlock code={JSON.stringify({ lead_email: 'john@example.com', affid: 'MP-JOHN-001', new_status: 'Active Subscriber' }, null, 2)} language="json" />
+                    <CodeBlock code={JSON.stringify({ lead_email: 'john@example.com', affid: 'MP-JOHN-001', new_status: 'Won' }, null, 2)} language="json" />
                   </div>
                 </div>
               </div>

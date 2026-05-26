@@ -95,11 +95,13 @@ export async function POST(request: NextRequest) {
     // Determine lead status (default to "Lead")
     const leadStatus = initial_status || 'Lead'
 
-    // Validate lead status
-    const validStatuses = ['Lead', 'Booked Call', 'Paying Customer', 'Churned']
+    // Validate lead status (new statuses + legacy support)
+    const newStatuses = ['Lead', 'Attendee', 'Test', 'Lost', 'Won']
+    const legacyStatuses = ['Booked Call', 'Paying Customer', 'Churned']
+    const validStatuses = [...newStatuses, ...legacyStatuses]
     if (!validStatuses.includes(leadStatus)) {
       return NextResponse.json(
-        { error: `Invalid initial_status. Must be one of: ${validStatuses.join(', ')}` },
+        { error: `Invalid initial_status. Must be one of: ${newStatuses.join(', ')}` },
         { status: 400, headers: corsHeaders }
       )
     }
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate commissions — NO commissions for direct (no_affiliate) traffic
     const monthlyCommission = isDirectTraffic ? 0 : getMonthlyComm(affiliate, planType)
-    const isPayingCustomer = leadStatus === 'Paying Customer'
+    const isPayingCustomer = leadStatus === 'Paying Customer' || leadStatus === 'Won'
     const signupCommission = (!isDirectTraffic && isPayingCustomer) ? getSignupComm(affiliate) : 0
 
     // Auto-create funnel events for this lead:

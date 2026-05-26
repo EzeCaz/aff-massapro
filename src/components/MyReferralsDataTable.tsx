@@ -56,8 +56,17 @@ export default function MyReferralsDataTable({ affid }: { affid: string }) {
     switch (status) {
       case 'Lead':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">{status}</Badge>
-      case 'Booked Call':
+      case 'Attendee':
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{status}</Badge>
+      case 'Test':
         return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">{status}</Badge>
+      case 'Won':
+        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{status}</Badge>
+      case 'Lost':
+        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{status}</Badge>
+      // Legacy statuses
+      case 'Booked Call':
+        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{status}</Badge>
       case 'Paying Customer':
         return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{status}</Badge>
       case 'Churned':

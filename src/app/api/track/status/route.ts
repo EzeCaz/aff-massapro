@@ -17,7 +17,9 @@ const COMMISSION_MAP: Record<string, number> = {
   Basic: 10,
 }
 
-const VALID_STATUSES = ['Lead', 'Booked Call', 'Paying Customer', 'Churned']
+const NEW_STATUSES = ['Lead', 'Attendee', 'Test', 'Lost', 'Won']
+const LEGACY_STATUSES = ['Booked Call', 'Paying Customer', 'Churned']
+const VALID_STATUSES = [...NEW_STATUSES, ...LEGACY_STATUSES]
 const VALID_PLANS = ['Enterprise', 'Professional', 'Basic']
 
 function getSignupComm(affiliate: { commissionType: string; customSignupComm: number | null }): number {
@@ -58,8 +60,11 @@ export async function PUT(request: NextRequest) {
 
     // Map legacy statuses
     let normalizedStatus = new_status
-    if (new_status === 'Call Booked') normalizedStatus = 'Booked Call'
-    if (new_status === 'Active Subscriber') normalizedStatus = 'Paying Customer'
+    if (new_status === 'Call Booked') normalizedStatus = 'Attendee'
+    if (new_status === 'Active Subscriber') normalizedStatus = 'Won'
+    if (new_status === 'Booked Call') normalizedStatus = 'Attendee'
+    if (new_status === 'Paying Customer') normalizedStatus = 'Won'
+    if (new_status === 'Churned') normalizedStatus = 'Lost'
 
     if (!VALID_STATUSES.includes(normalizedStatus)) {
       return NextResponse.json(
@@ -134,12 +139,20 @@ export async function PUT(request: NextRequest) {
     let signupCommissionDelta = 0
     let conversionDelta = 0
 
-    // If transitioning to "Paying Customer" from a non-paying status
-    if (normalizedStatus === 'Paying Customer' && previousStatus !== 'Paying Customer') {
+    // If transitioning to a "won" status from a non-won status
+    const isWonStatus = (status: string) => status === 'Won' || status === 'Paying Customer'
+    if (isWonStatus(normalizedStatus) && !isWonStatus(previousStatus)) {
       const signupComm = getSignupComm(affiliate)
       signupCommissionDelta = signupComm
       conversionDelta = 1
       updateData.signupCommission = signupComm
+    }
+
+    // If transitioning AWAY from won status, reverse the signup commission
+    if (!isWonStatus(normalizedStatus) && isWonStatus(previousStatus)) {
+      signupCommissionDelta = -referral.signupCommission
+      conversionDelta = -1
+      updateData.signupCommission = 0
     }
 
     // Update plan_type if provided
@@ -182,8 +195,8 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-    // Handle recurring commissions when months_active increments for a paying customer
-    if (normalizedStatus === 'Paying Customer' && months_active !== undefined && months_active > prevMonthsActive) {
+    // Handle recurring commissions when months_active increments for a won/paying customer
+    if (isWonStatus(normalizedStatus) && months_active !== undefined && months_active > prevMonthsActive) {
       const monthlyComm = getMonthlyComm(affiliate, plan_type || referral.planType)
       for (let m = prevMonthsActive + 1; m <= months_active; m++) {
         await db.commissionLedger.create({

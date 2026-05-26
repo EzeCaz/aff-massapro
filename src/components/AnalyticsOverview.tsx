@@ -21,7 +21,7 @@ interface AdminStats {
   totalTraffic: number
   uniqueVisitors: number
   totalReferrals: number
-  bookedCalls: number
+  bookedCalls: number  // Attendees + Won (moved past lead stage)
   payingCustomers: number
   activeAffiliates: number
   affiliateTraffic: number
@@ -242,7 +242,7 @@ export default function AnalyticsOverview() {
     {
       label: 'Lead Forms Sent',
       value: formatNumber(stats.totalReferrals),
-      sub: `${stats.bookedCalls} booked calls`,
+      sub: `${stats.bookedCalls} advanced`,
       icon: FileText,
       color: 'text-blue-600',
       bg: 'bg-blue-100',
@@ -615,7 +615,7 @@ export default function AnalyticsOverview() {
               { label: 'CTA Clicks', value: stats.leadFormCtaClicks, color: 'bg-indigo-500', pct: 100 },
               { label: 'Form Opens', value: stats.leadFormOpens, color: 'bg-cyan-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.leadFormOpens / stats.leadFormCtaClicks) * 100) : 0 },
               { label: 'Form Sent', value: stats.totalReferrals, color: 'bg-blue-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.totalReferrals / stats.leadFormCtaClicks) * 100) : 0 },
-              { label: 'Booked Calls', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0 },
+              { label: 'Won/Advanced', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0 },
             ].map((step, i, arr) => (
               <div key={step.label} className="flex items-center gap-2 flex-1">
                 <div className="flex-1">

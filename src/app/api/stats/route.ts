@@ -100,17 +100,18 @@ export async function GET(request: NextRequest) {
 
     const totalClicks = clicks.length
     const leads = referrals.filter(r => r.leadStatus === 'Lead').length
-    const bookedCall = referrals.filter(r => r.leadStatus === 'Booked Call').length
-    const payingCustomer = referrals.filter(r => r.leadStatus === 'Paying Customer').length
-    const churned = referrals.filter(r => r.leadStatus === 'Churned').length
+    const attendees = referrals.filter(r => r.leadStatus === 'Attendee' || r.leadStatus === 'Booked Call').length
+    const tests = referrals.filter(r => r.leadStatus === 'Test').length
+    const won = referrals.filter(r => r.leadStatus === 'Won' || r.leadStatus === 'Paying Customer').length
+    const lost = referrals.filter(r => r.leadStatus === 'Lost' || r.leadStatus === 'Churned').length
     const totalReferrals = referrals.length
-    const paidSignups = payingCustomer + churned
+    const paidSignups = won
 
     const funnelData = [
       { stage: 'Traffic', count: totalClicks, percentage: 100 },
-      { stage: 'Leads Created', count: totalReferrals, percentage: totalClicks > 0 ? Math.round((totalReferrals / totalClicks) * 100) : 0 },
-      { stage: 'Booked Calls', count: bookedCall + payingCustomer + churned, percentage: totalClicks > 0 ? Math.round(((bookedCall + payingCustomer + churned) / totalClicks) * 100) : 0 },
-      { stage: 'Paid Signups', count: paidSignups, percentage: totalClicks > 0 ? Math.round((paidSignups / totalClicks) * 100) : 0 },
+      { stage: 'Leads', count: totalReferrals, percentage: totalClicks > 0 ? Math.round((totalReferrals / totalClicks) * 100) : 0 },
+      { stage: 'Attendees', count: attendees + tests + won, percentage: totalClicks > 0 ? Math.round(((attendees + tests + won) / totalClicks) * 100) : 0 },
+      { stage: 'Won', count: won, percentage: totalClicks > 0 ? Math.round((won / totalClicks) * 100) : 0 },
     ]
 
     // Financial summary
@@ -124,9 +125,10 @@ export async function GET(request: NextRequest) {
     // Referral status breakdown
     const referralBreakdown = {
       leads,
-      bookedCall,
-      payingCustomer,
-      churned,
+      attendees,
+      tests,
+      won,
+      lost,
       total: totalReferrals,
     }
 
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
       const campaign = ref.ltUtmCampaign || ref.ftUtmCampaign || 'unknown'
       const current = campaignPerformance.get(campaign) || { total: 0, conversions: 0 }
       current.total++
-      if (ref.leadStatus === 'Paying Customer' || ref.leadStatus === 'Churned') {
+      if (ref.leadStatus === 'Won' || ref.leadStatus === 'Paying Customer') {
         current.conversions++
       }
       campaignPerformance.set(campaign, current)
@@ -236,11 +238,11 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     const totalReferrals = await db.referral.count({ where: referralWhere })
 
     const bookedCalls = await db.referral.count({
-      where: { ...referralWhere, leadStatus: { in: ['Booked Call', 'Paying Customer'] } },
+      where: { ...referralWhere, leadStatus: { in: ['Attendee', 'Booked Call', 'Test', 'Won', 'Paying Customer'] } },
     })
 
     const payingCustomers = await db.referral.count({
-      where: { leadStatus: 'Paying Customer' },
+      where: { leadStatus: { in: ['Won', 'Paying Customer'] } },
     })
 
     const activeAffiliates = await db.affiliate.count({
