@@ -49,3 +49,30 @@ Stage Summary:
 - MassaPro logo used across all layouts (landing, admin sidebar, affiliate header)
 - Favicon updated to MassaPro logo
 - Code live on GitHub, Vercel auto-deploy should trigger if connected
+
+---
+Task ID: 3
+Agent: Main
+Task: Enable admin to change lead status on dashboard with new statuses (Lead, Attendee, Test, Lost, Won)
+
+Work Log:
+- Rewrote LeadManagement.tsx with inline status change dropdown on each table row
+- Added status change dropdown in the lead detail sheet (side panel)
+- Created new PATCH /api/referrals/[id] endpoint for admin status updates from dashboard
+- Updated commission logic: Won triggers signup commission, moving away from Won reverses it
+- Updated track/lead route: new statuses + legacy support, Won triggers signup commission
+- Updated track/status route: auto-maps legacy statuses (Booked Call→Attendee, Paying Customer→Won, Churned→Lost)
+- Updated track/purchase route: purchase now sets status to Won instead of Paying Customer
+- Updated stats API: bookedCalls now counts Attendee+Booked Call+Test+Won+PayingCustomer
+- Updated MyReferralsDataTable with new status badge colors (Lead=yellow, Attendee=blue, Test=purple, Won=green, Lost=red)
+- Updated IntegrationGuide with new status examples and dropdown options
+- Updated AnalyticsOverview funnel labels (Booked Calls → Won/Advanced)
+- Build verified successful, pushed to GitHub
+
+Stage Summary:
+- Admin can now change lead status directly from the Leads table via inline dropdown
+- New statuses: Lead, Attendee, Test, Lost, Won
+- Won = conversion (triggers $100 signup commission)
+- Lost = deal lost (no commission)
+- Legacy statuses fully supported for backwards compatibility
+- Code pushed to GitHub (EzeCaz/aff-massapro)
