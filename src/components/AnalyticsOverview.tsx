@@ -48,6 +48,7 @@ interface FilterState {
   affid: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
+  withTests: boolean
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -90,6 +91,7 @@ export default function AnalyticsOverview() {
     affid: '',
     sortBy: 'date',
     sortOrder: 'desc',
+    withTests: true,
   })
 
   const buildQueryString = useCallback(() => {
@@ -103,6 +105,7 @@ export default function AnalyticsOverview() {
     if (filters.utmTerm) params.set('utmTerm', filters.utmTerm)
     if (filters.utmContent) params.set('utmContent', filters.utmContent)
     if (filters.affid) params.set('affid', filters.affid)
+    if (!filters.withTests) params.set('withTests', 'false')
     return params.toString()
   }, [filters])
 
@@ -146,6 +149,7 @@ export default function AnalyticsOverview() {
       affid: '',
       sortBy: 'date',
       sortOrder: 'desc',
+      withTests: true,
     })
   }
 
@@ -283,9 +287,25 @@ export default function AnalyticsOverview() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analytics Command Center</h1>
-        <p className="text-sm text-gray-500">Real-time overview of your affiliate program performance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Analytics Command Center</h1>
+          <p className="text-sm text-gray-500">Real-time overview of your affiliate program performance</p>
+        </div>
+        {/* With/Without Tests Toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          className={`gap-2 h-9 px-4 font-medium transition-all ${
+            filters.withTests
+              ? 'bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200'
+              : 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100'
+          }`}
+          onClick={() => setFilters(prev => ({ ...prev, withTests: !prev.withTests }))}
+        >
+          <span className={`w-2 h-2 rounded-full ${filters.withTests ? 'bg-purple-500' : 'bg-amber-500'}`} />
+          {filters.withTests ? 'With Tests' : 'Without Tests'}
+        </Button>
       </div>
 
       {/* Filter Bar */}

@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const utmTerm = searchParams.get('utmTerm')
     const utmContent = searchParams.get('utmContent')
     const filterAffid = searchParams.get('affid') // separate from the affiliate-specific stats affid
+    const withTests = searchParams.get('withTests') !== 'false' // default true, exclude when 'false'
 
     // Build where clause for clicks
     const clickWhere: any = {
@@ -43,10 +44,11 @@ export async function GET(request: NextRequest) {
       createdAt: { gte: dateFrom, lte: dateTo },
     }
     if (filterAffid) referralWhere.affid = filterAffid
+    if (!withTests) referralWhere.leadStatus = { notIn: ['Test'] }
 
     // If mode=admin, return global admin analytics
     if (mode === 'admin') {
-      return getAdminStats(clickWhere, referralWhere, dateFrom, dateTo)
+      return getAdminStats(clickWhere, referralWhere, dateFrom, dateTo, withTests)
     }
 
     if (!affid) {
@@ -222,14 +224,46 @@ async function getFilterOptions() {
   }
 }
 
-async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date, dateTo: Date) {
+async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date, dateTo: Date, withTests: boolean = true) {
   try {
+    // If excluding tests, find session IDs that submitted test leads to exclude their click traffic too
+    let effectiveClickWhere = { ...clickWhere }
+    if (!withTests) {
+      // Find affiliates that have test referrals
+      const testReferrals = await db.referral.findMany({
+        where: { leadStatus: 'Test', createdAt: { gte: dateFrom, lte: dateTo } },
+        select: { affid: true },
+      })
+      const testAffids = new Set(testReferrals.map(r => r.affid))
+      if (testAffids.size > 0) {
+        // Only exclude an affiliate's clicks if ALL their referrals in this period are tests
+        // If they have a mix of real + test leads, keep their traffic (it includes real leads)
+        const affidsToExclude: string[] = []
+        for (const aff of testAffids) {
+          const nonTestCount = await db.referral.count({
+            where: { affid: aff, leadStatus: { notIn: ['Test'] }, createdAt: { gte: dateFrom, lte: dateTo } },
+          })
+          if (nonTestCount === 0) {
+            affidsToExclude.push(aff)
+          }
+        }
+        if (affidsToExclude.length > 0) {
+          // If affid was already filtered to a specific value, don't override
+          if (!effectiveClickWhere.affid || typeof effectiveClickWhere.affid === 'string') {
+            effectiveClickWhere.affid = { notIn: affidsToExclude }
+          } else if (effectiveClickWhere.affid?.notIn) {
+            effectiveClickWhere.affid = { notIn: [...effectiveClickWhere.affid.notIn, ...affidsToExclude] }
+          }
+        }
+      }
+    }
+
     // Total traffic across all affiliates
-    const totalTraffic = await db.click.count({ where: clickWhere })
+    const totalTraffic = await db.click.count({ where: effectiveClickWhere })
 
     // Count unique visitors by distinct session IDs
     const uniqueSessions = await db.click.findMany({
-      where: { ...clickWhere, sessionId: { not: null } },
+      where: { ...effectiveClickWhere, sessionId: { not: null } },
       select: { sessionId: true },
       distinct: ['sessionId'],
     })
@@ -238,7 +272,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     const totalReferrals = await db.referral.count({ where: referralWhere })
 
     const bookedCalls = await db.referral.count({
-      where: { ...referralWhere, leadStatus: { in: ['Attendee', 'Booked Call', 'Test', 'Won', 'Paying Customer'] } },
+      where: { ...referralWhere, leadStatus: { in: ['Attendee', 'Booked Call', ...(withTests ? ['Test'] : []), 'Won', 'Paying Customer'] } },
     })
 
     const payingCustomers = await db.referral.count({
@@ -249,14 +283,14 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
       where: { isActive: true, isApproved: true },
     })
 
-    const affiliateTraffic = await db.click.count({ where: clickWhere })
+    const affiliateTraffic = await db.click.count({ where: effectiveClickWhere })
 
     const blendedRate = totalTraffic > 0 ? Math.round((totalReferrals / totalTraffic) * 100) : 0
     const bookingRate = totalReferrals > 0 ? Math.round((bookedCalls / totalReferrals) * 100) : 0
 
     // Event breakdown across all affiliates
     const allClicks = await db.click.findMany({
-      where: { ...clickWhere, eventType: 'button_click' },
+      where: { ...effectiveClickWhere, eventType: 'button_click' },
       select: { eventId: true },
     })
     const eventBreakdown: Record<string, number> = {}
@@ -268,7 +302,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
 
     // Traffic sources
     const allClicksForSource = await db.click.findMany({
-      where: clickWhere,
+      where: effectiveClickWhere,
       select: { utmSource: true, affid: true },
     })
     const trafficSources: Record<string, number> = {}
@@ -283,16 +317,16 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     const rangeMid = new Date((dateFrom.getTime() + dateTo.getTime()) / 2)
     const thisWeekStart = rangeMid
     const thisWeekClicks = await db.click.count({
-      where: { ...clickWhere, createdAt: { gte: thisWeekStart, lte: dateTo } },
+      where: { ...effectiveClickWhere, createdAt: { gte: thisWeekStart, lte: dateTo } },
     })
     const lastWeekClicks = await db.click.count({
-      where: { ...clickWhere, createdAt: { gte: dateFrom, lt: thisWeekStart } },
+      where: { ...effectiveClickWhere, createdAt: { gte: dateFrom, lt: thisWeekStart } },
     })
 
     // Lead form metrics
     const leadFormOpens = await db.click.count({
       where: {
-        ...clickWhere,
+        ...effectiveClickWhere,
         eventType: 'button_click',
         eventId: 'lead_form_open',
       },
@@ -309,7 +343,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     const leadFormCtaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
     const leadFormCtaClicks = await db.click.count({
       where: {
-        ...clickWhere,
+        ...effectiveClickWhere,
         eventType: 'button_click',
         eventId: { in: leadFormCtaIds },
       },
