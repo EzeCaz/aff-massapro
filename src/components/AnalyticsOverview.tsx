@@ -4,14 +4,18 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown, MousePointerClick, FormInput, CalendarIcon, Filter, X } from 'lucide-react'
-import { format, subDays } from 'date-fns'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Eye, Target, FileText, Phone, Users, TrendingUp, TrendingDown, MousePointerClick, FormInput, CalendarIcon, Filter, X, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import { format, subDays, parseISO, isValid } from 'date-fns'
+import type { DateRange } from 'react-day-picker'
 
 interface AdminStats {
   totalTraffic: number
@@ -31,16 +35,19 @@ interface AdminStats {
   leadFormSubmitRate: number
   ctaToFormRate: number
   trendData: { thisWeek: number; lastWeek: number; change: number }
-  filters?: {
-    utmSources: string[]
-    utmMediums: string[]
-    utmCampaigns: string[]
-    affids: { affid: string; name: string }[]
-  }
-  dateRange?: {
-    from: string
-    to: string
-  }
+}
+
+interface FilterState {
+  dateFrom: Date | undefined
+  dateTo: Date | undefined
+  utmSource: string
+  utmMedium: string
+  utmCampaign: string
+  utmTerm: string
+  utmContent: string
+  affid: string
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -54,60 +61,119 @@ const EVENT_LABELS: Record<string, string> = {
   btn_buy_enterprise: 'Buy Enterprise',
 }
 
-const PIE_COLORS = ['#9333ea', '#a855f7', '#c084fc', '#7c3aed', '#d8b4fe', '#6b21a8']
+const PIE_COLORS = ['#9333ea', '#a855f7', '#c084fc', '#7c3aed', '#d8b4fe', '#6b21a8', '#e879f9', '#6d28d9']
+
+const QUICK_RANGES = [
+  { label: '7d', days: 7 },
+  { label: '14d', days: 14 },
+  { label: '30d', days: 30 },
+  { label: '90d', days: 90 },
+]
 
 export default function AnalyticsOverview() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [availableUtmSources, setAvailableUtmSources] = useState<string[]>([])
+  const [availableUtmMediums, setAvailableUtmMediums] = useState<string[]>([])
+  const [availableUtmCampaigns, setAvailableUtmCampaigns] = useState<string[]>([])
+  const [availableAffids, setAvailableAffids] = useState<string[]>([])
 
-  // Date range state - default last 30 days
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
-  const [fromOpen, setFromOpen] = useState(false)
-  const [toOpen, setToOpen] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({
+    dateFrom: subDays(new Date(), 30),
+    dateTo: new Date(),
+    utmSource: '',
+    utmMedium: '',
+    utmCampaign: '',
+    utmTerm: '',
+    utmContent: '',
+    affid: '',
+    sortBy: 'date',
+    sortOrder: 'desc',
+  })
 
-  // Filter state
-  const [filterAffid, setFilterAffid] = useState<string>('')
-  const [filterUtmSource, setFilterUtmSource] = useState<string>('')
-  const [filterUtmMedium, setFilterUtmMedium] = useState<string>('')
-  const [filterUtmCampaign, setFilterUtmCampaign] = useState<string>('')
-  const [showFilters, setShowFilters] = useState(false)
+  const buildQueryString = useCallback(() => {
+    const params = new URLSearchParams()
+    params.set('mode', 'admin')
+    if (filters.dateFrom) params.set('dateFrom', format(filters.dateFrom, 'yyyy-MM-dd'))
+    if (filters.dateTo) params.set('dateTo', format(filters.dateTo, 'yyyy-MM-dd'))
+    if (filters.utmSource) params.set('utmSource', filters.utmSource)
+    if (filters.utmMedium) params.set('utmMedium', filters.utmMedium)
+    if (filters.utmCampaign) params.set('utmCampaign', filters.utmCampaign)
+    if (filters.utmTerm) params.set('utmTerm', filters.utmTerm)
+    if (filters.utmContent) params.set('utmContent', filters.utmContent)
+    if (filters.affid) params.set('affid', filters.affid)
+    return params.toString()
+  }, [filters])
 
-  const fetchStats = useCallback(() => {
+  // Fetch filter options (available UTM values and affid values)
+  useEffect(() => {
+    fetch('/api/stats?mode=filters')
+      .then(res => res.json())
+      .then(data => {
+        if (data.utmSources) setAvailableUtmSources(data.utmSources)
+        if (data.utmMediums) setAvailableUtmMediums(data.utmMediums)
+        if (data.utmCampaigns) setAvailableUtmCampaigns(data.utmCampaigns)
+        if (data.affids) setAvailableAffids(data.affids)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Fetch stats when filters change
+  useEffect(() => {
     setLoading(true)
-    const params = new URLSearchParams({ mode: 'admin' })
-    if (dateFrom) params.set('from', format(dateFrom, 'yyyy-MM-dd'))
-    if (dateTo) params.set('to', format(dateTo, 'yyyy-MM-dd'))
-    if (filterAffid && filterAffid !== 'all') params.set('filter_affid', filterAffid)
-    if (filterUtmSource && filterUtmSource !== 'all') params.set('filter_utm_source', filterUtmSource)
-    if (filterUtmMedium && filterUtmMedium !== 'all') params.set('filter_utm_medium', filterUtmMedium)
-    if (filterUtmCampaign && filterUtmCampaign !== 'all') params.set('filter_utm_campaign', filterUtmCampaign)
-
-    fetch(`/api/stats?${params.toString()}`)
+    const qs = buildQueryString()
+    fetch(`/api/stats?${qs}`)
       .then(res => res.json())
       .then(data => {
         setStats(data)
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [dateFrom, dateTo, filterAffid, filterUtmSource, filterUtmMedium, filterUtmCampaign])
-
-  useEffect(() => {
-    fetchStats()
-  }, [fetchStats])
-
-  const resetFilters = () => {
-    setDateFrom(undefined)
-    setDateTo(undefined)
-    setFilterAffid('')
-    setFilterUtmSource('')
-    setFilterUtmMedium('')
-    setFilterUtmCampaign('')
-  }
-
-  const hasActiveFilters = filterAffid || filterUtmSource || filterUtmMedium || filterUtmCampaign || dateFrom || dateTo
+  }, [buildQueryString])
 
   const formatNumber = (n: number) => n.toLocaleString('en-US')
+
+  const resetFilters = () => {
+    setFilters({
+      dateFrom: subDays(new Date(), 30),
+      dateTo: new Date(),
+      utmSource: '',
+      utmMedium: '',
+      utmCampaign: '',
+      utmTerm: '',
+      utmContent: '',
+      affid: '',
+      sortBy: 'date',
+      sortOrder: 'desc',
+    })
+  }
+
+  const setQuickRange = (days: number) => {
+    setFilters(prev => ({
+      ...prev,
+      dateFrom: subDays(new Date(), days - 1),
+      dateTo: new Date(),
+    }))
+  }
+
+  const activeFilterCount = [
+    filters.utmSource,
+    filters.utmMedium,
+    filters.utmCampaign,
+    filters.utmTerm,
+    filters.utmContent,
+    filters.affid,
+  ].filter(Boolean).length
+
+  const dateRange: DateRange = {
+    from: filters.dateFrom,
+    to: filters.dateTo,
+  }
+
+  const dateLabel = filters.dateFrom && filters.dateTo
+    ? `${format(filters.dateFrom, 'MMM dd')} — ${format(filters.dateTo, 'MMM dd, yyyy')}`
+    : 'Pick a date range'
 
   if (loading || !stats) {
     return (
@@ -120,28 +186,33 @@ export default function AnalyticsOverview() {
   const trendIcon = stats.trendData.change >= 0 ? TrendingUp : TrendingDown
   const TrendIcon = trendIcon
 
-  // Event breakdown chart data
-  const eventData = Object.entries(stats.eventBreakdown).map(([id, count]) => ({
+  // Event breakdown chart data with sort
+  let eventData = Object.entries(stats.eventBreakdown).map(([id, count]) => ({
     name: EVENT_LABELS[id] || id,
     count,
     id,
   }))
+  if (filters.sortBy === 'count') {
+    eventData.sort((a, b) => filters.sortOrder === 'desc' ? b.count - a.count : a.count - b.count)
+  }
 
   // Traffic sources pie data
-  const sourceData = Object.entries(stats.trafficSources)
+  let sourceData = Object.entries(stats.trafficSources)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }))
+
+  if (filters.sortBy === 'count') {
+    sourceData.sort((a, b) => filters.sortOrder === 'desc' ? b.value - a.value : a.value - b.value)
+  }
 
   // Affid pie data
-  const affidData = Object.entries(stats.trafficByAffid)
+  let affidData = Object.entries(stats.trafficByAffid)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }))
 
-  // Available filter options from API response
-  const availableSources = stats.filters?.utmSources || []
-  const availableMediums = stats.filters?.utmMediums || []
-  const availableCampaigns = stats.filters?.utmCampaigns || []
-  const availableAffids = stats.filters?.affids || []
+  if (filters.sortBy === 'count') {
+    affidData.sort((a, b) => filters.sortOrder === 'desc' ? b.value - a.value : a.value - b.value)
+  }
 
   const kpis = [
     {
@@ -217,183 +288,295 @@ export default function AnalyticsOverview() {
         <p className="text-sm text-gray-500">Real-time overview of your affiliate program performance</p>
       </div>
 
-      {/* Date Range & Filter Controls */}
-      <Card className="border-purple-100">
+      {/* Filter Bar */}
+      <Card className="border-purple-200 shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Date From */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500">From</span>
-              <Popover open={fromOpen} onOpenChange={setFromOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-[140px] justify-start text-left font-normal border-purple-200 hover:border-purple-400"
-                  >
-                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-purple-500" />
-                    {dateFrom ? format(dateFrom, 'MMM dd, yyyy') : '30 days ago'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={(d) => { setDateFrom(d); setFromOpen(false) }}
-                    disabled={(d) => d > new Date() || (dateTo ? d > dateTo : false)}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Date To */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500">To</span>
-              <Popover open={toOpen} onOpenChange={setToOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-[140px] justify-start text-left font-normal border-purple-200 hover:border-purple-400"
-                  >
-                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-purple-500" />
-                    {dateTo ? format(dateTo, 'MMM dd, yyyy') : 'Today'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={(d) => { setDateTo(d); setToOpen(false) }}
-                    disabled={(d) => d > new Date() || (dateFrom ? d < dateFrom : false)}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="h-6 w-px bg-gray-200 hidden sm:block" />
-
-            {/* Quick date presets */}
-            <div className="flex gap-1">
-              {[
-                { label: '7d', days: 7 },
-                { label: '30d', days: 30 },
-                { label: '90d', days: 90 },
-              ].map(preset => (
+            {/* Date Range Picker */}
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button
-                  key={preset.days}
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-7 px-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50"
-                  onClick={() => {
-                    setDateFrom(subDays(new Date(), preset.days))
-                    setDateTo(new Date())
-                  }}
+                  variant="outline"
+                  className="justify-start text-left font-normal min-w-[220px] border-purple-200 hover:border-purple-400"
                 >
-                  {preset.label}
+                  <CalendarIcon className="mr-2 h-4 w-4 text-purple-500" />
+                  <span className="text-sm">{dateLabel}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => {
+                    setFilters(prev => ({
+                      ...prev,
+                      dateFrom: range?.from,
+                      dateTo: range?.to,
+                    }))
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Quick Range Buttons */}
+            <div className="flex gap-1">
+              {QUICK_RANGES.map(qr => (
+                <Button
+                  key={qr.days}
+                  variant="outline"
+                  size="sm"
+                  className={
+                    filters.dateFrom && filters.dateTo &&
+                    format(filters.dateFrom, 'yyyy-MM-dd') === format(subDays(new Date(), qr.days - 1), 'yyyy-MM-dd') &&
+                    format(filters.dateTo, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                      ? 'bg-purple-100 border-purple-400 text-purple-700'
+                      : 'border-gray-200 text-gray-600 hover:border-purple-300'
+                  }
+                  onClick={() => setQuickRange(qr.days)}
+                >
+                  {qr.label}
                 </Button>
               ))}
             </div>
 
-            <div className="h-6 w-px bg-gray-200 hidden sm:block" />
-
-            {/* Toggle filters */}
+            {/* Toggle Filters Panel */}
             <Button
-              variant={showFilters ? 'default' : 'outline'}
+              variant="outline"
               size="sm"
-              className={`gap-1.5 ${showFilters ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 text-purple-600 hover:border-purple-400'}`}
-              onClick={() => setShowFilters(!showFilters)}
+              className={`gap-1.5 ${filtersOpen ? 'bg-purple-50 border-purple-300 text-purple-700' : 'border-gray-200 text-gray-600'}`}
+              onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <Filter className="w-3.5 h-3.5" />
               Filters
-              {hasActiveFilters && (
-                <span className="ml-1 w-4 h-4 rounded-full bg-white/30 text-[10px] flex items-center justify-center">
-                  !
-                </span>
+              {activeFilterCount > 0 && (
+                <Badge className="ml-1 h-5 w-5 p-0 text-[10px] bg-purple-600 text-white flex items-center justify-center rounded-full">
+                  {activeFilterCount}
+                </Badge>
               )}
+              {filtersOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </Button>
 
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-gray-400 hover:text-red-500 gap-1"
-                onClick={resetFilters}
+            {/* Sort */}
+            <div className="flex items-center gap-2 ml-auto">
+              <Label className="text-xs text-gray-500">Sort:</Label>
+              <Select
+                value={filters.sortBy}
+                onValueChange={v => setFilters(prev => ({ ...prev, sortBy: v }))}
               >
-                <X className="w-3 h-3" />
-                Reset
+                <SelectTrigger className="h-8 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">By Date</SelectItem>
+                  <SelectItem value="count">By Count</SelectItem>
+                  <SelectItem value="name">By Name</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  sortOrder: prev.sortOrder === 'desc' ? 'asc' : 'desc',
+                }))}
+                title={filters.sortOrder === 'desc' ? 'Descending' : 'Ascending'}
+              >
+                {filters.sortOrder === 'desc' ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
               </Button>
-            )}
+            </div>
+
+            {/* Reset */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-gray-600"
+              onClick={resetFilters}
+              title="Reset all filters"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </Button>
           </div>
 
-          {/* Expanded filter row */}
-          {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-purple-100">
-              {/* Affid filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">Affiliate</span>
-                <Select value={filterAffid} onValueChange={setFilterAffid}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs border-purple-200">
-                    <SelectValue placeholder="All affiliates" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All affiliates</SelectItem>
-                    {availableAffids.map(a => (
-                      <SelectItem key={a.affid} value={a.affid}>
-                        {a.name} ({a.affid})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Expanded Filter Panel */}
+          {filtersOpen && (
+            <div className="mt-4 pt-4 border-t border-purple-100 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* UTM Source */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">UTM Source</Label>
+                {availableUtmSources.length > 0 ? (
+                  <Select
+                    value={filters.utmSource || '__all__'}
+                    onValueChange={v => setFilters(prev => ({ ...prev, utmSource: v === '__all__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All sources" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All sources</SelectItem>
+                      {availableUtmSources.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="e.g. google"
+                    className="h-8 text-xs"
+                    value={filters.utmSource}
+                    onChange={e => setFilters(prev => ({ ...prev, utmSource: e.target.value }))}
+                  />
+                )}
               </div>
 
-              {/* UTM Source filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Source</span>
-                <Select value={filterUtmSource} onValueChange={setFilterUtmSource}>
-                  <SelectTrigger className="w-[150px] h-8 text-xs border-purple-200">
-                    <SelectValue placeholder="All sources" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All sources</SelectItem>
-                    {availableSources.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* UTM Medium */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">UTM Medium</Label>
+                {availableUtmMediums.length > 0 ? (
+                  <Select
+                    value={filters.utmMedium || '__all__'}
+                    onValueChange={v => setFilters(prev => ({ ...prev, utmMedium: v === '__all__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All mediums" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All mediums</SelectItem>
+                      {availableUtmMediums.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="e.g. cpc"
+                    className="h-8 text-xs"
+                    value={filters.utmMedium}
+                    onChange={e => setFilters(prev => ({ ...prev, utmMedium: e.target.value }))}
+                  />
+                )}
               </div>
 
-              {/* UTM Medium filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Medium</span>
-                <Select value={filterUtmMedium} onValueChange={setFilterUtmMedium}>
-                  <SelectTrigger className="w-[150px] h-8 text-xs border-purple-200">
-                    <SelectValue placeholder="All mediums" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All mediums</SelectItem>
-                    {availableMediums.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* UTM Campaign */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">UTM Campaign</Label>
+                {availableUtmCampaigns.length > 0 ? (
+                  <Select
+                    value={filters.utmCampaign || '__all__'}
+                    onValueChange={v => setFilters(prev => ({ ...prev, utmCampaign: v === '__all__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All campaigns" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All campaigns</SelectItem>
+                      {availableUtmCampaigns.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="e.g. spring_sale"
+                    className="h-8 text-xs"
+                    value={filters.utmCampaign}
+                    onChange={e => setFilters(prev => ({ ...prev, utmCampaign: e.target.value }))}
+                  />
+                )}
               </div>
 
-              {/* UTM Campaign filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 whitespace-nowrap">UTM Campaign</span>
-                <Select value={filterUtmCampaign} onValueChange={setFilterUtmCampaign}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs border-purple-200">
-                    <SelectValue placeholder="All campaigns" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All campaigns</SelectItem>
-                    {availableCampaigns.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* UTM Term */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">UTM Term</Label>
+                <Input
+                  placeholder="e.g. ai+receptionist"
+                  className="h-8 text-xs"
+                  value={filters.utmTerm}
+                  onChange={e => setFilters(prev => ({ ...prev, utmTerm: e.target.value }))}
+                />
               </div>
+
+              {/* UTM Content */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">UTM Content</Label>
+                <Input
+                  placeholder="e.g. header_v2"
+                  className="h-8 text-xs"
+                  value={filters.utmContent}
+                  onChange={e => setFilters(prev => ({ ...prev, utmContent: e.target.value }))}
+                />
+              </div>
+
+              {/* Affiliate ID */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Affiliate ID</Label>
+                {availableAffids.length > 0 ? (
+                  <Select
+                    value={filters.affid || '__all__'}
+                    onValueChange={v => setFilters(prev => ({ ...prev, affid: v === '__all__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All affiliates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All affiliates</SelectItem>
+                      {availableAffids.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="e.g. MP-EITAN-001"
+                    className="h-8 text-xs"
+                    value={filters.affid}
+                    onChange={e => setFilters(prev => ({ ...prev, affid: e.target.value }))}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Active Filter Tags */}
+          {activeFilterCount > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {filters.utmSource && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Source: {filters.utmSource}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, utmSource: '' }))} />
+                </Badge>
+              )}
+              {filters.utmMedium && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Medium: {filters.utmMedium}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, utmMedium: '' }))} />
+                </Badge>
+              )}
+              {filters.utmCampaign && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Campaign: {filters.utmCampaign}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, utmCampaign: '' }))} />
+                </Badge>
+              )}
+              {filters.utmTerm && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Term: {filters.utmTerm}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, utmTerm: '' }))} />
+                </Badge>
+              )}
+              {filters.utmContent && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Content: {filters.utmContent}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, utmContent: '' }))} />
+                </Badge>
+              )}
+              {filters.affid && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Aff: {filters.affid}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, affid: '' }))} />
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>
@@ -472,33 +655,25 @@ export default function AnalyticsOverview() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              {eventData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={eventData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: '1px solid #e9d5ff',
-                        boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
-                      }}
-                    />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
-                      {eventData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <MousePointerClick className="w-10 h-10 mb-2 text-gray-300" />
-                  <p className="text-sm font-medium">No button click events yet</p>
-                  <p className="text-xs text-gray-300 mt-1">Events will appear here when visitors click CTAs on your site</p>
-                </div>
-              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={eventData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: '1px solid #e9d5ff',
+                      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
+                    {eventData.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -511,38 +686,30 @@ export default function AnalyticsOverview() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              {sourceData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sourceData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={3}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {sourceData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: '1px solid #e9d5ff',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <Eye className="w-10 h-10 mb-2 text-gray-300" />
-                  <p className="text-sm font-medium">No traffic source data yet</p>
-                  <p className="text-xs text-gray-300 mt-1">Sources will appear as traffic is tracked with UTM parameters</p>
-                </div>
-              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={sourceData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {sourceData.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: '1px solid #e9d5ff',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -555,33 +722,25 @@ export default function AnalyticsOverview() {
           <CardDescription>Which affiliates are driving the most traffic</CardDescription>
         </CardHeader>
         <CardContent>
-          {affidData.length > 0 ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {affidData.map((item, i) => (
-                <div key={item.name} className="flex items-center gap-3 p-3 rounded-lg border border-purple-100 bg-purple-50/30">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                    style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                  >
-                    {item.name.split('-')[1]?.[0] || '?'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm text-gray-900">{item.name}</div>
-                    <div className="text-xs text-gray-500">{item.value} clicks</div>
-                  </div>
-                  <div className="text-sm font-bold text-purple-600">
-                    {stats.totalTraffic > 0 ? Math.round((item.value / stats.totalTraffic) * 100) : 0}%
-                  </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {affidData.map((item, i) => (
+              <div key={item.name} className="flex items-center gap-3 p-3 rounded-lg border border-purple-100 bg-purple-50/30">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                >
+                  {item.name.split('-')[1]?.[0] || '?'}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 flex flex-col items-center justify-center text-gray-400">
-              <Users className="w-10 h-10 mb-2 text-gray-300" />
-              <p className="text-sm font-medium">No affiliate traffic yet</p>
-              <p className="text-xs text-gray-300 mt-1">Traffic distribution will appear as affiliates drive visitors</p>
-            </div>
-          )}
+                <div className="flex-1">
+                  <div className="font-medium text-sm text-gray-900">{item.name}</div>
+                  <div className="text-xs text-gray-500">{item.value} clicks</div>
+                </div>
+                <div className="text-sm font-bold text-purple-600">
+                  {stats.totalTraffic > 0 ? Math.round((item.value / stats.totalTraffic) * 100) : 0}%
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -19,12 +19,7 @@ export const metadata: Metadata = {
   keywords: ["MassaPro", "AI Receptionist", "Affiliate", "Referral", "Dashboard", "AI Secretary"],
   authors: [{ name: "MassaPro" }],
   icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "48x48" },
-      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
-      { url: "/icon.png", type: "image/png", sizes: "512x512" },
-    ],
-    apple: "/apple-touch-icon.png",
+    icon: "/android-chrome-192x192.png",
   },
 };
 

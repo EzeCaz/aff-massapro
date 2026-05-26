@@ -31,10 +31,10 @@ export default function AdminLayout() {
       <aside className="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <img src="https://aff.massapro.com/android-chrome-192x192.png" alt="MassaPro" className="w-9 h-9 rounded-lg" />
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-9 h-9 rounded-lg" />
             <div>
               <h2 className="font-bold text-sm">MassaPro</h2>
-              <p className="text-xs text-gray-400">AI Agentic Receptionist — Manager</p>
+              <p className="text-xs text-gray-400">Manager Dashboard</p>
             </div>
           </div>
           {/* Admin identity */}
@@ -93,8 +93,8 @@ export default function AdminLayout() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white border-b border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src="https://aff.massapro.com/android-chrome-192x192.png" alt="MassaPro" className="w-8 h-8 rounded-lg" />
-            <span className="font-bold text-sm">MassaPro</span>
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-8 h-8 rounded-lg" />
+            <span className="font-bold text-sm">Manager</span>
             {adminUser && (
               <span className="text-xs text-purple-400 ml-1">({adminUser.name})</span>
             )}

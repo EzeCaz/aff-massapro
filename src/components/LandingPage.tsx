@@ -3,7 +3,7 @@
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Shield, Users, ArrowRight, LogIn, UserPlus } from 'lucide-react'
+import { Shield, Users, ArrowRight, Sparkles, LogIn, UserPlus } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function LandingPage() {
@@ -15,7 +15,7 @@ export default function LandingPage() {
       <header className="border-b border-purple-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="https://aff.massapro.com/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
+            <img src="/android-chrome-192x192.png" alt="MassaPro" className="w-10 h-10 rounded-xl" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">MassaPro</h1>
               <p className="text-xs text-purple-500">AI Agentic Receptionist — Affiliate Hub</p>
@@ -53,7 +53,7 @@ export default function LandingPage() {
             className="text-center mb-12"
           >
             <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 text-sm font-medium px-4 py-2 rounded-full mb-6">
-              <img src="https://aff.massapro.com/android-chrome-192x192.png" alt="" className="w-4 h-4 rounded" />
+              <Sparkles className="w-4 h-4" />
               Affiliate Management System
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">

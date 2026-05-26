@@ -1,28 +1,52 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns'
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns'
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const affid = searchParams.get('affid')
-    const mode = searchParams.get('mode') // 'admin' for global stats
+    const mode = searchParams.get('mode') // 'admin' for global stats, 'filters' for filter options
 
-    // Date range parameters
-    const fromDateStr = searchParams.get('from')
-    const toDateStr = searchParams.get('to')
-    const fromDate = fromDateStr && isValid(parseISO(fromDateStr)) ? startOfDay(parseISO(fromDateStr)) : subDays(new Date(), 30)
-    const toDate = toDateStr && isValid(parseISO(toDateStr)) ? endOfDay(parseISO(toDateStr)) : new Date()
+    // If mode=filters, return available filter values
+    if (mode === 'filters') {
+      return getFilterOptions()
+    }
 
-    // Filter parameters
-    const filterAffid = searchParams.get('filter_affid') || ''
-    const filterUtmSource = searchParams.get('filter_utm_source') || ''
-    const filterUtmMedium = searchParams.get('filter_utm_medium') || ''
-    const filterUtmCampaign = searchParams.get('filter_utm_campaign') || ''
+    // Parse date range
+    const dateFromStr = searchParams.get('dateFrom')
+    const dateToStr = searchParams.get('dateTo')
+    const dateFrom = dateFromStr ? startOfDay(parseISO(dateFromStr)) : subDays(new Date(), 30)
+    const dateTo = dateToStr ? endOfDay(parseISO(dateToStr)) : new Date()
+
+    // Parse UTM filters
+    const utmSource = searchParams.get('utmSource')
+    const utmMedium = searchParams.get('utmMedium')
+    const utmCampaign = searchParams.get('utmCampaign')
+    const utmTerm = searchParams.get('utmTerm')
+    const utmContent = searchParams.get('utmContent')
+    const filterAffid = searchParams.get('affid') // separate from the affiliate-specific stats affid
+
+    // Build where clause for clicks
+    const clickWhere: any = {
+      createdAt: { gte: dateFrom, lte: dateTo },
+    }
+    if (utmSource) clickWhere.utmSource = utmSource
+    if (utmMedium) clickWhere.utmMedium = utmMedium
+    if (utmCampaign) clickWhere.utmCampaign = utmCampaign
+    if (utmTerm) clickWhere.utmTerm = utmTerm
+    if (utmContent) clickWhere.utmContent = utmContent
+    if (filterAffid) clickWhere.affid = filterAffid
+
+    // Build where clause for referrals
+    const referralWhere: any = {
+      createdAt: { gte: dateFrom, lte: dateTo },
+    }
+    if (filterAffid) referralWhere.affid = filterAffid
 
     // If mode=admin, return global admin analytics
     if (mode === 'admin') {
-      return getAdminStats(fromDate, toDate, filterAffid, filterUtmSource, filterUtmMedium, filterUtmCampaign)
+      return getAdminStats(clickWhere, referralWhere, dateFrom, dateTo)
     }
 
     if (!affid) {
@@ -34,23 +58,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 })
     }
 
-    // Build click filter
-    const clickWhere: Record<string, unknown> = {
-      affid,
-      createdAt: { gte: fromDate, lte: toDate },
-    }
+    // Override click where with affiliate-specific filter
+    const affiliateClickWhere = { ...clickWhere, affid }
+    const affiliateReferralWhere = { ...referralWhere, affid }
 
     // Get clicks for the date range
     const clicks = await db.click.findMany({
-      where: clickWhere,
+      where: affiliateClickWhere,
       orderBy: { createdAt: 'asc' },
     })
 
     // Group clicks by day
-    const daysDiff = Math.max(1, Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)))
+    const daysDiff = Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 60 * 60 * 24)))
     const clicksByDay = new Map<string, { pageviews: number; buttonClicks: number }>()
     for (let i = 0; i < daysDiff; i++) {
-      const date = format(subDays(toDate, daysDiff - 1 - i), 'yyyy-MM-dd')
+      const date = format(subDays(dateTo, daysDiff - 1 - i), 'yyyy-MM-dd')
       clicksByDay.set(date, { pageviews: 0, buttonClicks: 0 })
     }
 
@@ -74,9 +96,9 @@ export async function GET(request: NextRequest) {
     }))
 
     // Get referrals for funnel
-    const referrals = await db.referral.findMany({ where: { affid } })
+    const referrals = await db.referral.findMany({ where: affiliateReferralWhere })
 
-    const totalClicks = affiliate.totalTraffic
+    const totalClicks = clicks.length
     const leads = referrals.filter(r => r.leadStatus === 'Lead').length
     const bookedCall = referrals.filter(r => r.leadStatus === 'Booked Call').length
     const payingCustomer = referrals.filter(r => r.leadStatus === 'Paying Customer').length
@@ -108,7 +130,7 @@ export async function GET(request: NextRequest) {
       total: totalReferrals,
     }
 
-    // UTM campaign performance
+    // UTM campaign performance (using last-touch UTMs)
     const campaignPerformance = new Map<string, { total: number; conversions: number }>()
     for (const ref of referrals) {
       const campaign = ref.ltUtmCampaign || ref.ftUtmCampaign || 'unknown'
@@ -142,9 +164,11 @@ export async function GET(request: NextRequest) {
       trafficSources[source] = (trafficSources[source] || 0) + 1
     }
 
-    // Trend data
-    const thisWeekClicks = clicks.filter(c => c.createdAt >= subDays(new Date(), 7)).length
-    const lastWeekClicks = clicks.filter(c => c.createdAt >= subDays(new Date(), 14) && c.createdAt < subDays(new Date(), 7)).length
+    // Trend data (week-over-week within the date range)
+    const thisWeekStart = subDays(new Date(), 7)
+    const lastWeekStart = subDays(new Date(), 14)
+    const thisWeekClicks = clicks.filter(c => c.createdAt >= thisWeekStart).length
+    const lastWeekClicks = clicks.filter(c => c.createdAt >= lastWeekStart && c.createdAt < thisWeekStart).length
     const trendData = {
       thisWeek: thisWeekClicks,
       lastWeek: lastWeekClicks,
@@ -167,44 +191,41 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getAdminStats(
-  fromDate: Date,
-  toDate: Date,
-  filterAffid: string,
-  filterUtmSource: string,
-  filterUtmMedium: string,
-  filterUtmCampaign: string
-) {
+async function getFilterOptions() {
   try {
-    // Build the base where clause for clicks
-    const clickWhere: Record<string, unknown> = {
-      createdAt: { gte: fromDate, lte: toDate },
-    }
-    if (filterAffid) {
-      clickWhere.affid = filterAffid
-    }
-    if (filterUtmSource) {
-      clickWhere.utmSource = filterUtmSource
-    }
-    if (filterUtmMedium) {
-      clickWhere.utmMedium = filterUtmMedium
-    }
+    // Get distinct UTM values and affid values from the Click table
+    const allClicks = await db.click.findMany({
+      select: {
+        utmSource: true,
+        utmMedium: true,
+        utmCampaign: true,
+        affid: true,
+      },
+    })
 
-    // Build referral where
-    const referralWhere: Record<string, unknown> = {
-      createdAt: { gte: fromDate, lte: toDate },
-    }
-    if (filterAffid) {
-      referralWhere.affid = filterAffid
-    }
-    if (filterUtmCampaign) {
-      referralWhere.ltUtmCampaign = filterUtmCampaign
-    }
+    const utmSources = [...new Set(allClicks.map(c => c.utmSource).filter(Boolean))] as string[]
+    const utmMediums = [...new Set(allClicks.map(c => c.utmMedium).filter(Boolean))] as string[]
+    const utmCampaigns = [...new Set(allClicks.map(c => c.utmCampaign).filter(Boolean))] as string[]
+    const affids = [...new Set(allClicks.map(c => c.affid).filter(Boolean))] as string[]
 
-    // Total traffic
+    return NextResponse.json({
+      utmSources: utmSources.sort(),
+      utmMediums: utmMediums.sort(),
+      utmCampaigns: utmCampaigns.sort(),
+      affids: affids.sort(),
+    })
+  } catch (error) {
+    console.error('Error fetching filter options:', error)
+    return NextResponse.json({ error: 'Failed to fetch filter options' }, { status: 500 })
+  }
+}
+
+async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date, dateTo: Date) {
+  try {
+    // Total traffic across all affiliates
     const totalTraffic = await db.click.count({ where: clickWhere })
 
-    // Count unique visitors
+    // Count unique visitors by distinct session IDs
     const uniqueSessions = await db.click.findMany({
       where: { ...clickWhere, sessionId: { not: null } },
       select: { sessionId: true },
@@ -226,18 +247,14 @@ async function getAdminStats(
       where: { isActive: true, isApproved: true },
     })
 
-    const affiliateTraffic = totalTraffic
+    const affiliateTraffic = await db.click.count({ where: clickWhere })
 
     const blendedRate = totalTraffic > 0 ? Math.round((totalReferrals / totalTraffic) * 100) : 0
     const bookingRate = totalReferrals > 0 ? Math.round((bookedCalls / totalReferrals) * 100) : 0
 
-    // Event breakdown
-    const eventClickWhere: Record<string, unknown> = {
-      ...clickWhere,
-      eventType: 'button_click',
-    }
+    // Event breakdown across all affiliates
     const allClicks = await db.click.findMany({
-      where: eventClickWhere,
+      where: { ...clickWhere, eventType: 'button_click' },
       select: { eventId: true },
     })
     const eventBreakdown: Record<string, number> = {}
@@ -247,33 +264,27 @@ async function getAdminStats(
       }
     }
 
-    // Traffic sources + affid breakdown
+    // Traffic sources
     const allClicksForSource = await db.click.findMany({
       where: clickWhere,
-      select: { utmSource: true, affid: true, utmMedium: true, utmCampaign: true },
+      select: { utmSource: true, affid: true },
     })
     const trafficSources: Record<string, number> = {}
     const trafficByAffid: Record<string, number> = {}
-    const utmMediums: Record<string, number> = {}
-    const utmCampaigns: Record<string, number> = {}
     for (const click of allClicksForSource) {
       const source = click.utmSource || 'direct'
       trafficSources[source] = (trafficSources[source] || 0) + 1
       trafficByAffid[click.affid] = (trafficByAffid[click.affid] || 0) + 1
-      if (click.utmMedium) {
-        utmMediums[click.utmMedium] = (utmMediums[click.utmMedium] || 0) + 1
-      }
-      if (click.utmCampaign) {
-        utmCampaigns[click.utmCampaign] = (utmCampaigns[click.utmCampaign] || 0) + 1
-      }
     }
 
-    // Trend data (always based on last 2 weeks regardless of date filter)
+    // Trend data (within the filtered date range)
+    const rangeMid = new Date((dateFrom.getTime() + dateTo.getTime()) / 2)
+    const thisWeekStart = rangeMid
     const thisWeekClicks = await db.click.count({
-      where: { ...clickWhere, createdAt: { gte: subDays(new Date(), 7) } },
+      where: { ...clickWhere, createdAt: { gte: thisWeekStart, lte: dateTo } },
     })
     const lastWeekClicks = await db.click.count({
-      where: { ...clickWhere, createdAt: { gte: subDays(new Date(), 14), lt: subDays(new Date(), 7) } },
+      where: { ...clickWhere, createdAt: { gte: dateFrom, lt: thisWeekStart } },
     })
 
     // Lead form metrics
@@ -288,7 +299,7 @@ async function getAdminStats(
     const leadFormOpenEvents = await db.affiliateEvent.count({
       where: {
         eventName: 'lead_form_open',
-        createdAt: { gte: fromDate, lte: toDate },
+        createdAt: { gte: dateFrom, lte: dateTo },
       },
     })
     const totalLeadFormOpens = leadFormOpens + leadFormOpenEvents
@@ -309,13 +320,6 @@ async function getAdminStats(
     const ctaToFormRate = leadFormCtaClicks > 0 && totalLeadFormOpens > 0
       ? Math.round((totalLeadFormOpens / leadFormCtaClicks) * 100)
       : 0
-
-    // Get list of all affid values for filter dropdown
-    const allAffids = await db.affiliate.findMany({
-      where: { isActive: true },
-      select: { affid: true, name: true },
-      orderBy: { affid: 'asc' },
-    })
 
     return NextResponse.json({
       totalTraffic,
@@ -338,17 +342,6 @@ async function getAdminStats(
         thisWeek: thisWeekClicks,
         lastWeek: lastWeekClicks,
         change: lastWeekClicks > 0 ? Math.round(((thisWeekClicks - lastWeekClicks) / lastWeekClicks) * 100) : 0,
-      },
-      // Extra filter metadata
-      filters: {
-        utmSources: Object.keys(trafficSources).sort(),
-        utmMediums: Object.keys(utmMediums).sort(),
-        utmCampaigns: Object.keys(utmCampaigns).sort(),
-        affids: allAffids.map(a => ({ affid: a.affid, name: a.name })),
-      },
-      dateRange: {
-        from: fromDate.toISOString(),
-        to: toDate.toISOString(),
       },
     })
   } catch (error) {
