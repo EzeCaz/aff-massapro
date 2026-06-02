@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -116,6 +116,7 @@ model Referral {
   ltUtmCampaign     String?
   ltUtmContent      String?
   ltUtmTerm         String?
+  leadMetadata      String?  // JSON string for additional lead data
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   affiliate         Affiliate @relation(fields: [affiliateId], references: [id])
