@@ -359,6 +359,45 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
       ? Math.round((totalLeadFormOpens / leadFormCtaClicks) * 100)
       : 0
 
+    // Daily time-series for KPI sparklines
+    const daysDiff = Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 60 * 60 * 24)))
+    const dailyTraffic: { date: string; value: number }[] = []
+    const dailyUniqueVisitors: { date: string; value: number }[] = []
+    const dailyCtaClicks: { date: string; value: number }[] = []
+    const dailyFormOpens: { date: string; value: number }[] = []
+    const dailyReferrals: { date: string; value: number }[] = []
+    const dailyConversionRate: { date: string; value: number }[] = []
+    const dailyBookingRate: { date: string; value: number }[] = []
+
+    // Fetch all clicks and referrals for daily grouping
+    const [allClicksForDaily, allReferralsForDaily] = await Promise.all([
+      db.click.findMany({ where: effectiveClickWhere, select: { createdAt: true, eventType: true, eventId: true, sessionId: true } }),
+      db.referral.findMany({ where: referralWhere, select: { createdAt: true, leadStatus: true } }),
+    ])
+
+    for (let i = 0; i < daysDiff; i++) {
+      const dayStart = new Date(dateFrom.getTime() + i * 86400000)
+      const dayEnd = new Date(dayStart.getTime() + 86400000)
+      const dayLabel = format(dayStart, 'yyyy-MM-dd')
+
+      const dayClicks = allClicksForDaily.filter(c => c.createdAt >= dayStart && c.createdAt < dayEnd)
+      const dayReferrals = allReferralsForDaily.filter(r => r.createdAt >= dayStart && r.createdAt < dayEnd)
+      const dayUniqueSessions = new Set(dayClicks.filter(c => c.sessionId).map(c => c.sessionId)).size
+      const dayCtaClicks = dayClicks.filter(c => c.eventType === 'button_click' && ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier'].includes(c.eventId || '')).length
+      const dayFormOpens = dayClicks.filter(c => c.eventType === 'button_click' && c.eventId === 'lead_form_open').length
+      const dayTraffic = dayClicks.length
+      const dayReferralCount = dayReferrals.length
+      const dayBooked = dayReferrals.filter(r => ['Attendee', 'Booked Call', 'Won', 'Paying Customer', ...(withTests ? ['Test'] : [])].includes(r.leadStatus)).length
+
+      dailyTraffic.push({ date: dayLabel, value: dayTraffic })
+      dailyUniqueVisitors.push({ date: dayLabel, value: dayUniqueSessions })
+      dailyCtaClicks.push({ date: dayLabel, value: dayCtaClicks })
+      dailyFormOpens.push({ date: dayLabel, value: dayFormOpens })
+      dailyReferrals.push({ date: dayLabel, value: dayReferralCount })
+      dailyConversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
+      dailyBookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+    }
+
     return NextResponse.json({
       totalTraffic,
       uniqueVisitors: uniqueVisitorCount,
@@ -380,6 +419,15 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
         thisWeek: thisWeekClicks,
         lastWeek: lastWeekClicks,
         change: lastWeekClicks > 0 ? Math.round(((thisWeekClicks - lastWeekClicks) / lastWeekClicks) * 100) : 0,
+      },
+      dailyTimeSeries: {
+        traffic: dailyTraffic,
+        uniqueVisitors: dailyUniqueVisitors,
+        ctaClicks: dailyCtaClicks,
+        formOpens: dailyFormOpens,
+        referrals: dailyReferrals,
+        conversionRate: dailyConversionRate,
+        bookingRate: dailyBookingRate,
       },
     })
   } catch (error) {

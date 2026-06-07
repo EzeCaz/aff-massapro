@@ -17,6 +17,16 @@ import {
 import { format, subDays, parseISO, isValid } from 'date-fns'
 import type { DateRange } from 'react-day-picker'
 
+interface DailyTimeSeries {
+  traffic: { date: string; value: number }[]
+  uniqueVisitors: { date: string; value: number }[]
+  ctaClicks: { date: string; value: number }[]
+  formOpens: { date: string; value: number }[]
+  referrals: { date: string; value: number }[]
+  conversionRate: { date: string; value: number }[]
+  bookingRate: { date: string; value: number }[]
+}
+
 interface AdminStats {
   totalTraffic: number
   uniqueVisitors: number
@@ -35,6 +45,7 @@ interface AdminStats {
   leadFormSubmitRate: number
   ctaToFormRate: number
   trendData: { thisWeek: number; lastWeek: number; change: number }
+  dailyTimeSeries: DailyTimeSeries
 }
 
 interface FilterState {
@@ -226,6 +237,8 @@ export default function AnalyticsOverview() {
       icon: Eye,
       color: 'text-purple-600',
       bg: 'bg-purple-100',
+      sparkData: stats.dailyTimeSeries?.traffic || [],
+      sparkColor: '#9333ea',
     },
     {
       label: 'CTA → Lead Form Clicks',
@@ -234,6 +247,8 @@ export default function AnalyticsOverview() {
       icon: MousePointerClick,
       color: 'text-indigo-600',
       bg: 'bg-indigo-100',
+      sparkData: stats.dailyTimeSeries?.ctaClicks || [],
+      sparkColor: '#4f46e5',
     },
     {
       label: 'Lead Forms Opened',
@@ -242,6 +257,8 @@ export default function AnalyticsOverview() {
       icon: FormInput,
       color: 'text-cyan-600',
       bg: 'bg-cyan-100',
+      sparkData: stats.dailyTimeSeries?.formOpens || [],
+      sparkColor: '#0891b2',
     },
     {
       label: 'Lead Forms Sent',
@@ -250,6 +267,8 @@ export default function AnalyticsOverview() {
       icon: FileText,
       color: 'text-blue-600',
       bg: 'bg-blue-100',
+      sparkData: stats.dailyTimeSeries?.referrals || [],
+      sparkColor: '#2563eb',
     },
     {
       label: 'Conversion Rate',
@@ -258,6 +277,8 @@ export default function AnalyticsOverview() {
       icon: Target,
       color: 'text-green-600',
       bg: 'bg-green-100',
+      sparkData: stats.dailyTimeSeries?.conversionRate || [],
+      sparkColor: '#16a34a',
     },
     {
       label: 'Booking Rate',
@@ -266,6 +287,8 @@ export default function AnalyticsOverview() {
       icon: Phone,
       color: 'text-amber-600',
       bg: 'bg-amber-100',
+      sparkData: stats.dailyTimeSeries?.bookingRate || [],
+      sparkColor: '#d97706',
     },
     {
       label: 'Active Affiliates',
@@ -274,6 +297,8 @@ export default function AnalyticsOverview() {
       icon: Users,
       color: 'text-purple-700',
       bg: 'bg-purple-100',
+      sparkData: [],
+      sparkColor: '#7e22ce',
     },
     {
       label: 'Week-over-Week',
@@ -282,6 +307,8 @@ export default function AnalyticsOverview() {
       icon: TrendIcon,
       color: stats.trendData.change >= 0 ? 'text-green-600' : 'text-red-600',
       bg: stats.trendData.change >= 0 ? 'bg-green-100' : 'bg-red-100',
+      sparkData: stats.dailyTimeSeries?.traffic || [],
+      sparkColor: stats.trendData.change >= 0 ? '#16a34a' : '#dc2626',
     },
   ]
 
@@ -606,6 +633,7 @@ export default function AnalyticsOverview() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
         {kpis.map(kpi => {
           const Icon = kpi.icon
+          const hasSparkData = kpi.sparkData && kpi.sparkData.length > 1
           return (
             <Card key={kpi.label} className="border-purple-100">
               <CardContent className="p-4">
@@ -617,6 +645,30 @@ export default function AnalyticsOverview() {
                 <div className={`text-lg font-bold ${kpi.color}`}>{kpi.value}</div>
                 <div className="text-xs text-gray-500">{kpi.label}</div>
                 <div className="text-xs text-gray-400 mt-0.5">{kpi.sub}</div>
+                {/* Sparkline Chart */}
+                {hasSparkData && (
+                  <div className="mt-2 h-10">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={kpi.sparkData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                        <defs>
+                          <linearGradient id={`sparkGrad-${kpi.label.replace(/[^a-zA-Z]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={kpi.sparkColor} stopOpacity={0.3} />
+                            <stop offset="100%" stopColor={kpi.sparkColor} stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke={kpi.sparkColor}
+                          strokeWidth={1.5}
+                          fill={`url(#sparkGrad-${kpi.label.replace(/[^a-zA-Z]/g, '')})`}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
