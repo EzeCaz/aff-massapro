@@ -46,9 +46,12 @@ export async function GET(request: NextRequest) {
     if (filterAffid) referralWhere.affid = filterAffid
     if (!withTests) referralWhere.leadStatus = { notIn: ['Test'] }
 
+    // Parse series breakdown parameter
+    const seriesBy = searchParams.get('seriesBy') || '' // e.g. 'utmSource', 'utmMedium', 'utmCampaign', 'affid'
+
     // If mode=admin, return global admin analytics
     if (mode === 'admin') {
-      return getAdminStats(clickWhere, referralWhere, dateFrom, dateTo, withTests)
+      return getAdminStats(clickWhere, referralWhere, dateFrom, dateTo, withTests, seriesBy)
     }
 
     if (!affid) {
@@ -226,7 +229,7 @@ async function getFilterOptions() {
   }
 }
 
-async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date, dateTo: Date, withTests: boolean = true) {
+async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date, dateTo: Date, withTests: boolean = true, seriesBy: string = '') {
   try {
     // If excluding tests, find session IDs that submitted test leads to exclude their click traffic too
     let effectiveClickWhere = { ...clickWhere }
@@ -429,9 +432,109 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
         conversionRate: dailyConversionRate,
         bookingRate: dailyBookingRate,
       },
+      ...(seriesBy ? await getTimeSeriesByGroup(effectiveClickWhere, referralWhere, dateFrom, dateTo, withTests, seriesBy) : {}),
     })
   } catch (error) {
     console.error('Error fetching admin stats:', error)
     return NextResponse.json({ error: 'Failed to fetch admin stats' }, { status: 500 })
   }
+}
+
+async function getTimeSeriesByGroup(
+  clickWhere: any,
+  referralWhere: any,
+  dateFrom: Date,
+  dateTo: Date,
+  withTests: boolean,
+  seriesBy: string
+) {
+  // Determine which field to group by
+  const validFields = ['utmSource', 'utmMedium', 'utmCampaign', 'affid']
+  if (!validFields.includes(seriesBy)) return {}
+
+  const daysDiff = Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 60 * 60 * 24)))
+
+  // Fetch all clicks with the grouping field
+  const allClicks = await db.click.findMany({
+    where: clickWhere,
+    select: {
+      createdAt: true,
+      eventType: true,
+      eventId: true,
+      sessionId: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      affid: true,
+    },
+  })
+
+  // Fetch all referrals with the grouping field (via affid)
+  const allReferrals = await db.referral.findMany({
+    where: referralWhere,
+    select: {
+      createdAt: true,
+      leadStatus: true,
+      affid: true,
+    },
+  })
+
+  // Get distinct group values
+  const groupValues = [...new Set(allClicks.map(c => c[seriesBy] || '(direct)'))].sort() as string[]
+
+  // Build daily time-series per group
+  const seriesData: Record<string, {
+    traffic: { date: string; value: number }[]
+    uniqueVisitors: { date: string; value: number }[]
+    ctaClicks: { date: string; value: number }[]
+    formOpens: { date: string; value: number }[]
+    referrals: { date: string; value: number }[]
+    conversionRate: { date: string; value: number }[]
+    bookingRate: { date: string; value: number }[]
+  }> = {}
+
+  const ctaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
+
+  for (const groupVal of groupValues) {
+    const groupClicks = allClicks.filter(c => (c[seriesBy] || '(direct)') === groupVal)
+    const groupAffid = seriesBy === 'affid' ? groupVal : null
+    const groupReferrals = groupAffid
+      ? allReferrals.filter(r => r.affid === groupAffid)
+      : allReferrals // For UTM-based grouping on referrals, we use the affid from the referral (approximation)
+
+    const traffic: { date: string; value: number }[] = []
+    const uniqueVisitors: { date: string; value: number }[] = []
+    const ctaClicks: { date: string; value: number }[] = []
+    const formOpens: { date: string; value: number }[] = []
+    const referrals: { date: string; value: number }[] = []
+    const conversionRate: { date: string; value: number }[] = []
+    const bookingRate: { date: string; value: number }[] = []
+
+    for (let i = 0; i < daysDiff; i++) {
+      const dayStart = new Date(dateFrom.getTime() + i * 86400000)
+      const dayEnd = new Date(dayStart.getTime() + 86400000)
+      const dayLabel = format(dayStart, 'yyyy-MM-dd')
+
+      const dayClicks = groupClicks.filter(c => c.createdAt >= dayStart && c.createdAt < dayEnd)
+      const dayReferrals = groupReferrals.filter(r => r.createdAt >= dayStart && r.createdAt < dayEnd)
+      const dayUniqueSessions = new Set(dayClicks.filter(c => c.sessionId).map(c => c.sessionId)).size
+      const dayCtaClicks = dayClicks.filter(c => c.eventType === 'button_click' && ctaIds.includes(c.eventId || '')).length
+      const dayFormOpens = dayClicks.filter(c => c.eventType === 'button_click' && c.eventId === 'lead_form_open').length
+      const dayTraffic = dayClicks.length
+      const dayReferralCount = dayReferrals.length
+      const dayBooked = dayReferrals.filter(r => ['Attendee', 'Booked Call', 'Won', 'Paying Customer', ...(withTests ? ['Test'] : [])].includes(r.leadStatus)).length
+
+      traffic.push({ date: dayLabel, value: dayTraffic })
+      uniqueVisitors.push({ date: dayLabel, value: dayUniqueSessions })
+      ctaClicks.push({ date: dayLabel, value: dayCtaClicks })
+      formOpens.push({ date: dayLabel, value: dayFormOpens })
+      referrals.push({ date: dayLabel, value: dayReferralCount })
+      conversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
+      bookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+    }
+
+    seriesData[groupVal] = { traffic, uniqueVisitors, ctaClicks, formOpens, referrals, conversionRate, bookingRate }
+  }
+
+  return { seriesBy, seriesData }
 }
