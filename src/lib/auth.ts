@@ -65,12 +65,13 @@ export function setAuthCookie(
   type: 'admin' | 'affiliate',
   token: string
 ): NextResponse {
+  const isProduction = process.env.VERCEL === '1'
   response.cookies.set({
     name: COOKIE_NAMES[type],
     value: token,
     httpOnly: true,
-    secure: false, // Allow cookies over HTTP (Caddy handles HTTPS termination)
-    sameSite: 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/',
     maxAge: 86400, // 24 hours
   })
@@ -81,13 +82,14 @@ export function setAuthCookie(
  * Clear all authentication cookies on the response.
  */
 export function clearAuthCookies(response: NextResponse): NextResponse {
+  const isProduction = process.env.VERCEL === '1'
   for (const name of Object.values(COOKIE_NAMES)) {
     response.cookies.set({
       name,
       value: '',
       httpOnly: true,
-      secure: false, // Allow cookies over HTTP (Caddy handles HTTPS termination)
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 0,
     })
