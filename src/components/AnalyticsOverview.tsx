@@ -851,40 +851,89 @@ export default function AnalyticsOverview() {
       <Card className="border-purple-100">
         <CardHeader>
           <CardTitle className="text-base">Lead Form Funnel</CardTitle>
-          <CardDescription>From CTA click to form submission</CardDescription>
+          <CardDescription>From CTA click to form submission{hasSeries ? ' — hover for series breakdown' : ''}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
             {[
-              { label: 'CTA Clicks', value: stats.leadFormCtaClicks, color: 'bg-indigo-500', pct: 100 },
-              { label: 'Form Opens', value: stats.leadFormOpens, color: 'bg-cyan-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.leadFormOpens / stats.leadFormCtaClicks) * 100) : 0 },
-              { label: 'Form Sent', value: stats.totalReferrals, color: 'bg-blue-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.totalReferrals / stats.leadFormCtaClicks) * 100) : 0 },
-              { label: 'Won/Advanced', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0 },
-            ].map((step, i, arr) => (
-              <div key={step.label} className="flex items-center gap-2 flex-1">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={`w-3 h-3 rounded-full ${step.color}`} />
-                    <span className="text-xs font-medium text-gray-700">{step.label}</span>
-                  </div>
-                  <div className="relative h-8 bg-gray-100 rounded-md overflow-hidden">
-                    <div
-                      className={`absolute inset-y-0 left-0 ${step.color} rounded-md transition-all duration-500`}
-                      style={{ width: `${Math.max(step.pct, step.value > 0 ? 8 : 0)}%` }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-gray-800">{formatNumber(step.value)}</span>
+              { label: 'CTA Clicks', value: stats.leadFormCtaClicks, color: 'bg-indigo-500', pct: 100, metricKey: 'ctaClicks' as keyof DailyTimeSeries },
+              { label: 'Form Opens', value: stats.leadFormOpens, color: 'bg-cyan-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.leadFormOpens / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'formOpens' as keyof DailyTimeSeries },
+              { label: 'Form Sent', value: stats.totalReferrals, color: 'bg-blue-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.totalReferrals / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'referrals' as keyof DailyTimeSeries },
+              { label: 'Won/Advanced', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'bookingRate' as keyof DailyTimeSeries },
+            ].map((step, i, arr) => {
+              // Compute per-series totals for this funnel step
+              const seriesBreakdown = hasSeries ? seriesGroups.map((group, gIdx) => {
+                const groupData = stats.seriesData?.[group]?.[step.metricKey]
+                const total = groupData ? groupData.reduce((sum, d) => sum + d.value, 0) : 0
+                return { group, color: SERIES_COLORS[gIdx % SERIES_COLORS.length], value: total }
+              }).filter(s => s.value > 0) : []
+
+              return (
+                <div key={step.label} className="flex items-center gap-2 flex-1">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`w-3 h-3 rounded-full ${step.color}`} />
+                      <span className="text-xs font-medium text-gray-700">{step.label}</span>
+                    </div>
+                    <div className="group relative">
+                      <div className="relative h-8 bg-gray-100 rounded-md overflow-hidden">
+                        {hasSeries && seriesBreakdown.length > 0 ? (
+                          // Stacked bar showing series breakdown
+                          <div className="absolute inset-y-0 left-0 flex rounded-md overflow-hidden" style={{ width: `${Math.max(step.pct, step.value > 0 ? 8 : 0)}%` }}>
+                            {seriesBreakdown.map((s, sIdx) => {
+                              const segPct = step.value > 0 ? (s.value / step.value) * 100 : 0
+                              return (
+                                <div
+                                  key={s.group}
+                                  className="h-full transition-all duration-500"
+                                  style={{ width: `${segPct}%`, backgroundColor: s.color, opacity: 0.85 }}
+                                />
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <div
+                            className={`absolute inset-y-0 left-0 ${step.color} rounded-md transition-all duration-500`}
+                            style={{ width: `${Math.max(step.pct, step.value > 0 ? 8 : 0)}%` }}
+                          />
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xs font-bold text-gray-800">{formatNumber(step.value)}</span>
+                        </div>
+                      </div>
+                      {/* Hover tooltip for series breakdown */}
+                      {hasSeries && seriesBreakdown.length > 0 && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-56">
+                          <div className="bg-white/95 backdrop-blur-sm border border-purple-200 rounded-lg px-3 py-2 shadow-lg shadow-purple-100/50">
+                            <div className="text-xs font-semibold text-purple-700 mb-1.5">{step.label}</div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="w-3 h-1.5 rounded-full bg-gray-800" />
+                              <span className="text-xs text-gray-600">Total:</span>
+                              <span className="text-xs font-bold text-gray-900">{formatNumber(step.value)}</span>
+                            </div>
+                            {seriesBreakdown.map((s) => (
+                              <div key={s.group} className="flex items-center gap-1.5">
+                                <span className="w-3 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                                <span className="text-xs text-gray-600">{s.group === '(direct)' ? 'Direct' : s.group}:</span>
+                                <span className="text-xs font-bold text-gray-900">{formatNumber(s.value)}</span>
+                                <span className="text-[10px] text-gray-400">({step.value > 0 ? Math.round((s.value / step.value) * 100) : 0}%)</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="w-2 h-2 bg-white border-r border-b border-purple-200 rotate-45 mx-auto -mt-1" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {step.pct > 0 ? `${step.pct}% of CTA clicks` : '—'}
                     </div>
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {step.pct > 0 ? `${step.pct}% of CTA clicks` : '—'}
-                  </div>
+                  {i < arr.length - 1 && (
+                    <div className="text-gray-300 text-lg mt-[-1rem]">&rarr;</div>
+                  )}
                 </div>
-                {i < arr.length - 1 && (
-                  <div className="text-gray-300 text-lg mt-[-1rem]">&rarr;</div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>
