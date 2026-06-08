@@ -371,6 +371,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     const dailyReferrals: { date: string; value: number }[] = []
     const dailyConversionRate: { date: string; value: number }[] = []
     const dailyBookingRate: { date: string; value: number }[] = []
+    const dailyBookedCalls: { date: string; value: number }[] = []
 
     // Fetch all clicks and referrals for daily grouping
     const [allClicksForDaily, allReferralsForDaily] = await Promise.all([
@@ -399,6 +400,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
       dailyReferrals.push({ date: dayLabel, value: dayReferralCount })
       dailyConversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
       dailyBookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+      dailyBookedCalls.push({ date: dayLabel, value: dayBooked })
     }
 
     return NextResponse.json({
@@ -431,6 +433,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
         referrals: dailyReferrals,
         conversionRate: dailyConversionRate,
         bookingRate: dailyBookingRate,
+        bookedCalls: dailyBookedCalls,
       },
       ...(seriesBy ? await getTimeSeriesByGroup(effectiveClickWhere, referralWhere, dateFrom, dateTo, withTests, seriesBy) : {}),
     })
@@ -448,6 +451,11 @@ async function getTimeSeriesByGroup(
   withTests: boolean,
   seriesBy: string
 ) {
+  // Handle testMode as a special series dimension
+  if (seriesBy === 'testMode') {
+    return getTimeSeriesByTestMode(clickWhere, referralWhere, dateFrom, dateTo)
+  }
+
   // Determine which field to group by
   const validFields = ['utmSource', 'utmMedium', 'utmCampaign', 'affid']
   if (!validFields.includes(seriesBy)) return {}
@@ -491,6 +499,7 @@ async function getTimeSeriesByGroup(
     referrals: { date: string; value: number }[]
     conversionRate: { date: string; value: number }[]
     bookingRate: { date: string; value: number }[]
+    bookedCalls: { date: string; value: number }[]
   }> = {}
 
   const ctaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
@@ -509,6 +518,7 @@ async function getTimeSeriesByGroup(
     const referrals: { date: string; value: number }[] = []
     const conversionRate: { date: string; value: number }[] = []
     const bookingRate: { date: string; value: number }[] = []
+    const bookedCalls: { date: string; value: number }[] = []
 
     for (let i = 0; i < daysDiff; i++) {
       const dayStart = new Date(dateFrom.getTime() + i * 86400000)
@@ -531,10 +541,121 @@ async function getTimeSeriesByGroup(
       referrals.push({ date: dayLabel, value: dayReferralCount })
       conversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
       bookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+      bookedCalls.push({ date: dayLabel, value: dayBooked })
     }
 
-    seriesData[groupVal] = { traffic, uniqueVisitors, ctaClicks, formOpens, referrals, conversionRate, bookingRate }
+    seriesData[groupVal] = { traffic, uniqueVisitors, ctaClicks, formOpens, referrals, conversionRate, bookingRate, bookedCalls }
   }
 
   return { seriesBy, seriesData }
+}
+
+async function getTimeSeriesByTestMode(
+  baseClickWhere: any,
+  baseReferralWhere: any,
+  dateFrom: Date,
+  dateTo: Date
+) {
+  const daysDiff = Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 60 * 60 * 24)))
+  const ctaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
+
+  // WITH TESTS variant: no leadStatus filter on referrals
+  const withTestsClickWhere = { ...baseClickWhere }
+  const withTestsReferralWhere = { ...baseReferralWhere }
+  delete withTestsReferralWhere.leadStatus // Include all lead statuses
+
+  // WITHOUT TESTS variant: exclude test leads and test-only affiliates
+  const withoutTestsReferralWhere = { ...baseReferralWhere, leadStatus: { notIn: ['Test'] } }
+  const withoutTestsClickWhere = { ...baseClickWhere }
+
+  // Find test-only affiliates to exclude their clicks
+  const testReferrals = await db.referral.findMany({
+    where: { leadStatus: 'Test', createdAt: { gte: dateFrom, lte: dateTo } },
+    select: { affid: true },
+  })
+  const testAffids = new Set(testReferrals.map(r => r.affid))
+  const affidsToExclude: string[] = []
+  for (const aff of testAffids) {
+    const nonTestCount = await db.referral.count({
+      where: { affid: aff, leadStatus: { notIn: ['Test'] }, createdAt: { gte: dateFrom, lte: dateTo } },
+    })
+    if (nonTestCount === 0) {
+      affidsToExclude.push(aff)
+    }
+  }
+  if (affidsToExclude.length > 0) {
+    if (!withoutTestsClickWhere.affid || typeof withoutTestsClickWhere.affid === 'string') {
+      if (withoutTestsClickWhere.affid && typeof withoutTestsClickWhere.affid === 'string') {
+        // Don't override an existing specific affid filter
+      } else {
+        withoutTestsClickWhere.affid = { notIn: affidsToExclude }
+      }
+    } else if (withoutTestsClickWhere.affid?.notIn) {
+      withoutTestsClickWhere.affid = { notIn: [...withoutTestsClickWhere.affid.notIn, ...affidsToExclude] }
+    }
+  }
+
+  // Fetch data for both variants in parallel
+  const [withTestsClicks, withTestsReferrals, withoutTestsClicks, withoutTestsReferrals] = await Promise.all([
+    db.click.findMany({
+      where: withTestsClickWhere,
+      select: { createdAt: true, eventType: true, eventId: true, sessionId: true },
+    }),
+    db.referral.findMany({
+      where: withTestsReferralWhere,
+      select: { createdAt: true, leadStatus: true },
+    }),
+    db.click.findMany({
+      where: withoutTestsClickWhere,
+      select: { createdAt: true, eventType: true, eventId: true, sessionId: true },
+    }),
+    db.referral.findMany({
+      where: withoutTestsReferralWhere,
+      select: { createdAt: true, leadStatus: true },
+    }),
+  ])
+
+  function computeDailySeries(clicks: any[], referrals: any[], includeTests: boolean) {
+    const traffic: { date: string; value: number }[] = []
+    const uniqueVisitors: { date: string; value: number }[] = []
+    const ctaClicks: { date: string; value: number }[] = []
+    const formOpens: { date: string; value: number }[] = []
+    const referralsTs: { date: string; value: number }[] = []
+    const conversionRate: { date: string; value: number }[] = []
+    const bookingRate: { date: string; value: number }[] = []
+    const bookedCalls: { date: string; value: number }[] = []
+
+    for (let i = 0; i < daysDiff; i++) {
+      const dayStart = new Date(dateFrom.getTime() + i * 86400000)
+      const dayEnd = new Date(dayStart.getTime() + 86400000)
+      const dayLabel = format(dayStart, 'yyyy-MM-dd')
+
+      const dayClicks = clicks.filter(c => c.createdAt >= dayStart && c.createdAt < dayEnd)
+      const dayReferrals = referrals.filter(r => r.createdAt >= dayStart && r.createdAt < dayEnd)
+      const dayUniqueSessions = new Set(dayClicks.filter(c => c.sessionId).map(c => c.sessionId)).size
+      const dayCtaClicks = dayClicks.filter(c => c.eventType === 'button_click' && ctaIds.includes(c.eventId || '')).length
+      const dayFormOpens = dayClicks.filter(c => c.eventType === 'button_click' && c.eventId === 'lead_form_open').length
+      const dayTraffic = dayClicks.length
+      const dayReferralCount = dayReferrals.length
+      const dayBooked = dayReferrals.filter(r => ['Attendee', 'Booked Call', 'Won', 'Paying Customer', ...(includeTests ? ['Test'] : [])].includes(r.leadStatus)).length
+
+      traffic.push({ date: dayLabel, value: dayTraffic })
+      uniqueVisitors.push({ date: dayLabel, value: dayUniqueSessions })
+      ctaClicks.push({ date: dayLabel, value: dayCtaClicks })
+      formOpens.push({ date: dayLabel, value: dayFormOpens })
+      referralsTs.push({ date: dayLabel, value: dayReferralCount })
+      conversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
+      bookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+      bookedCalls.push({ date: dayLabel, value: dayBooked })
+    }
+
+    return { traffic, uniqueVisitors, ctaClicks, formOpens, referrals: referralsTs, conversionRate, bookingRate, bookedCalls }
+  }
+
+  const seriesData: Record<string, any> = {
+    'With Tests': computeDailySeries(withTestsClicks, withTestsReferrals, true),
+    'Without Tests': computeDailySeries(withoutTestsClicks, withoutTestsReferrals, false),
+  }
+
+  return { seriesBy: 'testMode', seriesData }
 }

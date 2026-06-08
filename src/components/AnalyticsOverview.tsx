@@ -25,6 +25,7 @@ interface DailyTimeSeries {
   referrals: { date: string; value: number }[]
   conversionRate: { date: string; value: number }[]
   bookingRate: { date: string; value: number }[]
+  bookedCalls: { date: string; value: number }[]
 }
 
 interface AdminStats {
@@ -86,6 +87,7 @@ const SERIES_COLORS = [
 
 const SERIES_DIMENSIONS = [
   { value: '', label: 'None (Total only)' },
+  { value: 'testMode', label: 'With/Without Tests' },
   { value: 'utmSource', label: 'UTM Source' },
   { value: 'utmMedium', label: 'UTM Medium' },
   { value: 'utmCampaign', label: 'UTM Campaign' },
@@ -859,7 +861,7 @@ export default function AnalyticsOverview() {
               { label: 'CTA Clicks', value: stats.leadFormCtaClicks, color: 'bg-indigo-500', pct: 100, metricKey: 'ctaClicks' as keyof DailyTimeSeries },
               { label: 'Form Opens', value: stats.leadFormOpens, color: 'bg-cyan-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.leadFormOpens / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'formOpens' as keyof DailyTimeSeries },
               { label: 'Form Sent', value: stats.totalReferrals, color: 'bg-blue-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.totalReferrals / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'referrals' as keyof DailyTimeSeries },
-              { label: 'Won/Advanced', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'bookingRate' as keyof DailyTimeSeries },
+              { label: 'Won/Advanced', value: stats.bookedCalls, color: 'bg-green-500', pct: stats.leadFormCtaClicks > 0 ? Math.round((stats.bookedCalls / stats.leadFormCtaClicks) * 100) : 0, metricKey: 'bookedCalls' as keyof DailyTimeSeries },
             ].map((step, i, arr) => {
               // Compute per-series totals for this funnel step
               const seriesBreakdown = hasSeries ? seriesGroups.map((group, gIdx) => {
