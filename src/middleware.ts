@@ -28,6 +28,7 @@ const PUBLIC_ROUTE_PREFIXES = [
   '/api/track',
   '/api/auth',
   '/api/generate-link',
+  '/api/setup',
 ]
 
 // Routes that require admin role for ALL methods
