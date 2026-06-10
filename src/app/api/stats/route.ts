@@ -456,6 +456,11 @@ async function getTimeSeriesByGroup(
     return getTimeSeriesByTestMode(clickWhere, referralWhere, dateFrom, dateTo)
   }
 
+  // Handle landingPage as a special series dimension
+  if (seriesBy === 'landingPage') {
+    return getTimeSeriesByLandingPage(clickWhere, referralWhere, dateFrom, dateTo, withTests)
+  }
+
   // Determine which field to group by
   const validFields = ['utmSource', 'utmMedium', 'utmCampaign', 'affid']
   if (!validFields.includes(seriesBy)) return {}
@@ -658,4 +663,152 @@ async function getTimeSeriesByTestMode(
   }
 
   return { seriesBy: 'testMode', seriesData }
+}
+
+// Helper: extract landing page slug from a full URL
+function extractLandingPage(pageUrl: string | null): string {
+  if (!pageUrl) return '(unknown)'
+  try {
+    const url = new URL(pageUrl)
+    // Get the first path segment after the domain, e.g. "/hair-salon" → "hair-salon"
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+    if (pathSegments.length === 0) return 'homepage'
+    return pathSegments[0]
+  } catch {
+    // If URL parsing fails, try a simple regex fallback
+    const match = pageUrl.match(/\/([a-zA-Z0-9_-]+)/)
+    return match ? match[1] : '(unknown)'
+  }
+}
+
+async function getTimeSeriesByLandingPage(
+  clickWhere: any,
+  referralWhere: any,
+  dateFrom: Date,
+  dateTo: Date,
+  withTests: boolean
+) {
+  const daysDiff = Math.max(1, Math.ceil((dateTo.getTime() - dateFrom.getTime()) / (1000 * 60 * 60 * 24)))
+  const ctaIds = ['btn_hero_demo', 'btn_cta_signup', 'btn_nav_contact', 'btn_pricing_tier']
+
+  // Fetch clicks with pageUrl
+  const allClicks = await db.click.findMany({
+    where: clickWhere,
+    select: {
+      createdAt: true,
+      eventType: true,
+      eventId: true,
+      sessionId: true,
+      pageUrl: true,
+      affid: true,
+    },
+  })
+
+  // Fetch referrals
+  const allReferrals = await db.referral.findMany({
+    where: referralWhere,
+    select: {
+      createdAt: true,
+      leadStatus: true,
+      affid: true,
+    },
+  })
+
+  // Also fetch AffiliateEvents with pageUrl (for lead_form_open events)
+  const allEvents = await db.affiliateEvent.findMany({
+    where: {
+      eventName: 'lead_form_open',
+      createdAt: { gte: dateFrom, lte: dateTo },
+    },
+    select: {
+      createdAt: true,
+      eventName: true,
+      pageUrl: true,
+      affid: true,
+    },
+  })
+
+  // Extract landing page for each click
+  const clicksWithPage = allClicks.map(c => ({
+    ...c,
+    landingPage: extractLandingPage(c.pageUrl),
+  }))
+
+  // Get distinct landing page values
+  const landingPages = [...new Set(clicksWithPage.map(c => c.landingPage))].sort()
+
+  // Build a map: affid → primary landing page (most common landing page for that affiliate's clicks)
+  // This is used to assign referrals to landing pages since referrals don't have pageUrl
+  const affidToLandingPage = new Map<string, string>()
+  const affidClickCounts = new Map<string, Map<string, number>>()
+  for (const c of clicksWithPage) {
+    if (!affidClickCounts.has(c.affid)) {
+      affidClickCounts.set(c.affid, new Map())
+    }
+    const pageCounts = affidClickCounts.get(c.affid)!
+    pageCounts.set(c.landingPage, (pageCounts.get(c.landingPage) || 0) + 1)
+  }
+  for (const [affid, pageCounts] of affidClickCounts) {
+    // Assign the affiliate to their most-used landing page
+    const sorted = [...pageCounts.entries()].sort((a, b) => b[1] - a[1])
+    affidToLandingPage.set(affid, sorted[0][0])
+  }
+
+  // Build daily time-series per landing page
+  const seriesData: Record<string, {
+    traffic: { date: string; value: number }[]
+    uniqueVisitors: { date: string; value: number }[]
+    ctaClicks: { date: string; value: number }[]
+    formOpens: { date: string; value: number }[]
+    referrals: { date: string; value: number }[]
+    conversionRate: { date: string; value: number }[]
+    bookingRate: { date: string; value: number }[]
+    bookedCalls: { date: string; value: number }[]
+  }> = {}
+
+  for (const page of landingPages) {
+    const groupClicks = clicksWithPage.filter(c => c.landingPage === page)
+    // Assign referrals to this landing page based on their affid's primary landing page
+    const groupReferrals = allReferrals.filter(r => affidToLandingPage.get(r.affid) === page)
+    // Also count affiliate events for this landing page
+    const groupEvents = allEvents.filter(e => extractLandingPage(e.pageUrl) === page)
+
+    const traffic: { date: string; value: number }[] = []
+    const uniqueVisitors: { date: string; value: number }[] = []
+    const ctaClicks: { date: string; value: number }[] = []
+    const formOpens: { date: string; value: number }[] = []
+    const referrals: { date: string; value: number }[] = []
+    const conversionRate: { date: string; value: number }[] = []
+    const bookingRate: { date: string; value: number }[] = []
+    const bookedCalls: { date: string; value: number }[] = []
+
+    for (let i = 0; i < daysDiff; i++) {
+      const dayStart = new Date(dateFrom.getTime() + i * 86400000)
+      const dayEnd = new Date(dayStart.getTime() + 86400000)
+      const dayLabel = format(dayStart, 'yyyy-MM-dd')
+
+      const dayClicks = groupClicks.filter(c => c.createdAt >= dayStart && c.createdAt < dayEnd)
+      const dayReferrals = groupReferrals.filter(r => r.createdAt >= dayStart && r.createdAt < dayEnd)
+      const dayFormOpenClicks = dayClicks.filter(c => c.eventType === 'button_click' && c.eventId === 'lead_form_open').length
+      const dayFormOpenEvents = groupEvents.filter(e => e.createdAt >= dayStart && e.createdAt < dayEnd).length
+      const dayUniqueSessions = new Set(dayClicks.filter(c => c.sessionId).map(c => c.sessionId)).size
+      const dayCtaClicks = dayClicks.filter(c => c.eventType === 'button_click' && ctaIds.includes(c.eventId || '')).length
+      const dayTraffic = dayClicks.length
+      const dayReferralCount = dayReferrals.length
+      const dayBooked = dayReferrals.filter(r => ['Attendee', 'Booked Call', 'Won', 'Paying Customer', ...(withTests ? ['Test'] : [])].includes(r.leadStatus)).length
+
+      traffic.push({ date: dayLabel, value: dayTraffic })
+      uniqueVisitors.push({ date: dayLabel, value: dayUniqueSessions })
+      ctaClicks.push({ date: dayLabel, value: dayCtaClicks })
+      formOpens.push({ date: dayLabel, value: dayFormOpenClicks + dayFormOpenEvents })
+      referrals.push({ date: dayLabel, value: dayReferralCount })
+      conversionRate.push({ date: dayLabel, value: dayTraffic > 0 ? Math.round((dayReferralCount / dayTraffic) * 100) : 0 })
+      bookingRate.push({ date: dayLabel, value: dayReferralCount > 0 ? Math.round((dayBooked / dayReferralCount) * 100) : 0 })
+      bookedCalls.push({ date: dayLabel, value: dayBooked })
+    }
+
+    seriesData[page] = { traffic, uniqueVisitors, ctaClicks, formOpens, referrals, conversionRate, bookingRate, bookedCalls }
+  }
+
+  return { seriesBy: 'landingPage', seriesData }
 }

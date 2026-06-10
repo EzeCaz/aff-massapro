@@ -88,6 +88,7 @@ const SERIES_COLORS = [
 const SERIES_DIMENSIONS = [
   { value: '', label: 'None (Total only)' },
   { value: 'testMode', label: 'With/Without Tests' },
+  { value: 'landingPage', label: 'Landing Page' },
   { value: 'utmSource', label: 'UTM Source' },
   { value: 'utmMedium', label: 'UTM Medium' },
   { value: 'utmCampaign', label: 'UTM Campaign' },
