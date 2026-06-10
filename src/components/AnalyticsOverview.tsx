@@ -60,6 +60,7 @@ interface FilterState {
   utmTerm: string
   utmContent: string
   affid: string
+  landingPage: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
   withTests: boolean
@@ -132,6 +133,7 @@ export default function AnalyticsOverview() {
   const [availableUtmMediums, setAvailableUtmMediums] = useState<string[]>([])
   const [availableUtmCampaigns, setAvailableUtmCampaigns] = useState<string[]>([])
   const [availableAffids, setAvailableAffids] = useState<string[]>([])
+  const [availableLandingPages, setAvailableLandingPages] = useState<string[]>([])
 
   const [filters, setFilters] = useState<FilterState>({
     dateFrom: subDays(new Date(), 30),
@@ -142,6 +144,7 @@ export default function AnalyticsOverview() {
     utmTerm: '',
     utmContent: '',
     affid: '',
+    landingPage: '',
     sortBy: 'date',
     sortOrder: 'desc',
     withTests: true,
@@ -159,6 +162,7 @@ export default function AnalyticsOverview() {
     if (filters.utmTerm) params.set('utmTerm', filters.utmTerm)
     if (filters.utmContent) params.set('utmContent', filters.utmContent)
     if (filters.affid) params.set('affid', filters.affid)
+    if (filters.landingPage) params.set('landingPage', filters.landingPage)
     if (!filters.withTests) params.set('withTests', 'false')
     if (filters.seriesBy) params.set('seriesBy', filters.seriesBy)
     return params.toString()
@@ -173,6 +177,7 @@ export default function AnalyticsOverview() {
         if (data.utmMediums) setAvailableUtmMediums(data.utmMediums)
         if (data.utmCampaigns) setAvailableUtmCampaigns(data.utmCampaigns)
         if (data.affids) setAvailableAffids(data.affids)
+        if (data.landingPages) setAvailableLandingPages(data.landingPages)
       })
       .catch(() => {})
   }, [])
@@ -202,6 +207,7 @@ export default function AnalyticsOverview() {
       utmTerm: '',
       utmContent: '',
       affid: '',
+      landingPage: '',
       sortBy: 'date',
       sortOrder: 'desc',
       withTests: true,
@@ -224,6 +230,7 @@ export default function AnalyticsOverview() {
     filters.utmTerm,
     filters.utmContent,
     filters.affid,
+    filters.landingPage,
   ].filter(Boolean).length
 
   const dateRange: DateRange = {
@@ -582,7 +589,7 @@ export default function AnalyticsOverview() {
 
           {/* Expanded Filter Panel */}
           {filtersOpen && (
-            <div className="mt-4 pt-4 border-t border-purple-100 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="mt-4 pt-4 border-t border-purple-100 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
               {/* UTM Source */}
               <div>
                 <Label className="text-xs text-gray-500 mb-1 block">UTM Source</Label>
@@ -716,6 +723,34 @@ export default function AnalyticsOverview() {
                   />
                 )}
               </div>
+
+              {/* Landing Page */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Landing Page</Label>
+                {availableLandingPages.length > 0 ? (
+                  <Select
+                    value={filters.landingPage || '__all__'}
+                    onValueChange={v => setFilters(prev => ({ ...prev, landingPage: v === '__all__' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All pages" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All pages</SelectItem>
+                      {availableLandingPages.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="e.g. hair-salon"
+                    className="h-8 text-xs"
+                    value={filters.landingPage}
+                    onChange={e => setFilters(prev => ({ ...prev, landingPage: e.target.value }))}
+                  />
+                )}
+              </div>
             </div>
           )}
 
@@ -756,6 +791,12 @@ export default function AnalyticsOverview() {
                 <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
                   Aff: {filters.affid}
                   <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, affid: '' }))} />
+                </Badge>
+              )}
+              {filters.landingPage && (
+                <Badge variant="secondary" className="text-xs gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                  Page: {filters.landingPage}
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, landingPage: '' }))} />
                 </Badge>
               )}
             </div>

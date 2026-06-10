@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const utmTerm = searchParams.get('utmTerm')
     const utmContent = searchParams.get('utmContent')
     const filterAffid = searchParams.get('affid') // separate from the affiliate-specific stats affid
+    const landingPage = searchParams.get('landingPage') // e.g. 'hair-salon', 'expert', 'expert-TY'
     const withTests = searchParams.get('withTests') !== 'false' // default true, exclude when 'false'
 
     // Build where clause for clicks
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     if (utmTerm) clickWhere.utmTerm = utmTerm
     if (utmContent) clickWhere.utmContent = utmContent
     if (filterAffid) clickWhere.affid = filterAffid
+    if (landingPage) clickWhere.pageUrl = { contains: `/${landingPage}` }
 
     // Build where clause for referrals
     const referralWhere: any = {
@@ -45,6 +47,8 @@ export async function GET(request: NextRequest) {
     }
     if (filterAffid) referralWhere.affid = filterAffid
     if (!withTests) referralWhere.leadStatus = { notIn: ['Test'] }
+    // If landingPage is filtered, we'll also need to filter referrals by affids that have clicks on that page
+    // This will be handled in getAdminStats since it's async
 
     // Parse series breakdown parameter
     const seriesBy = searchParams.get('seriesBy') || '' // e.g. 'utmSource', 'utmMedium', 'utmCampaign', 'affid'
@@ -202,13 +206,14 @@ export async function GET(request: NextRequest) {
 
 async function getFilterOptions() {
   try {
-    // Get distinct UTM values and affid values from the Click table
+    // Get distinct UTM values, affid values, and pageUrl from the Click table
     const allClicks = await db.click.findMany({
       select: {
         utmSource: true,
         utmMedium: true,
         utmCampaign: true,
         affid: true,
+        pageUrl: true,
       },
     })
 
@@ -217,11 +222,27 @@ async function getFilterOptions() {
     const utmCampaigns = [...new Set(allClicks.map(c => c.utmCampaign).filter(Boolean))] as string[]
     const affids = [...new Set(allClicks.map(c => c.affid).filter(Boolean))] as string[]
 
+    // Extract landing page slugs from pageUrl
+    const landingPages = [...new Set(
+      allClicks.map(c => {
+        if (!c.pageUrl) return null
+        try {
+          const url = new URL(c.pageUrl)
+          const segments = url.pathname.split('/').filter(Boolean)
+          return segments.length > 0 ? segments[0] : 'homepage'
+        } catch {
+          const match = c.pageUrl.match(/\/([a-zA-Z0-9_-]+)/)
+          return match ? match[1] : null
+        }
+      }).filter(Boolean)
+    )].sort() as string[]
+
     return NextResponse.json({
       utmSources: utmSources.sort(),
       utmMediums: utmMediums.sort(),
       utmCampaigns: utmCampaigns.sort(),
       affids: affids.sort(),
+      landingPages,
     })
   } catch (error) {
     console.error('Error fetching filter options:', error)
@@ -263,6 +284,31 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
       }
     }
 
+    // If landingPage filter is active, also filter referrals by affids that have clicks on that page
+    let effectiveReferralWhere = { ...referralWhere }
+    if (clickWhere.pageUrl?.contains) {
+      const landingPageAffids = await db.click.findMany({
+        where: { pageUrl: clickWhere.pageUrl, createdAt: { gte: dateFrom, lte: dateTo } },
+        select: { affid: true },
+        distinct: ['affid'],
+      })
+      const pageAffidList = landingPageAffids.map(c => c.affid).filter(Boolean)
+      if (pageAffidList.length > 0) {
+        if (effectiveReferralWhere.affid && typeof effectiveReferralWhere.affid === 'string') {
+          // Already filtered to a specific affid — check if it's in the landing page affids
+          if (!pageAffidList.includes(effectiveReferralWhere.affid)) {
+            // No matching referrals possible
+            effectiveReferralWhere.affid = '__none__'
+          }
+        } else {
+          effectiveReferralWhere.affid = { in: pageAffidList }
+        }
+      } else {
+        // No clicks on this landing page — no referrals either
+        effectiveReferralWhere.affid = '__none__'
+      }
+    }
+
     // Total traffic across all affiliates
     const totalTraffic = await db.click.count({ where: effectiveClickWhere })
 
@@ -274,10 +320,10 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     })
     const uniqueVisitorCount = uniqueSessions.length
 
-    const totalReferrals = await db.referral.count({ where: referralWhere })
+    const totalReferrals = await db.referral.count({ where: effectiveReferralWhere })
 
     const bookedCalls = await db.referral.count({
-      where: { ...referralWhere, leadStatus: { in: ['Attendee', 'Booked Call', ...(withTests ? ['Test'] : []), 'Won', 'Paying Customer'] } },
+      where: { ...effectiveReferralWhere, leadStatus: { in: ['Attendee', 'Booked Call', ...(withTests ? ['Test'] : []), 'Won', 'Paying Customer'] } },
     })
 
     const payingCustomers = await db.referral.count({
@@ -376,7 +422,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
     // Fetch all clicks and referrals for daily grouping
     const [allClicksForDaily, allReferralsForDaily] = await Promise.all([
       db.click.findMany({ where: effectiveClickWhere, select: { createdAt: true, eventType: true, eventId: true, sessionId: true } }),
-      db.referral.findMany({ where: referralWhere, select: { createdAt: true, leadStatus: true } }),
+      db.referral.findMany({ where: effectiveReferralWhere, select: { createdAt: true, leadStatus: true } }),
     ])
 
     for (let i = 0; i < daysDiff; i++) {
@@ -435,7 +481,7 @@ async function getAdminStats(clickWhere: any, referralWhere: any, dateFrom: Date
         bookingRate: dailyBookingRate,
         bookedCalls: dailyBookedCalls,
       },
-      ...(seriesBy ? await getTimeSeriesByGroup(effectiveClickWhere, referralWhere, dateFrom, dateTo, withTests, seriesBy) : {}),
+      ...(seriesBy ? await getTimeSeriesByGroup(effectiveClickWhere, effectiveReferralWhere, dateFrom, dateTo, withTests, seriesBy) : {}),
     })
   } catch (error) {
     console.error('Error fetching admin stats:', error)
